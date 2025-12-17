@@ -1,28 +1,44 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ["./src/**/*.{html,js}"],
-  darkMode: 'class', // Manual toggling via JS
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
         jp: ['Noto Sans JP', 'sans-serif'],
-        // English Font Options
+        // English options
         inter: ['Inter', 'sans-serif'],
         lato: ['Lato', 'sans-serif'],
         roboto: ['Roboto', 'sans-serif'],
       },
       colors: {
-        // Deep Purple / Black Theme for Dark Mode
+        // Deep Purple / Black Theme
         dark: {
-          bg: '#050505',       // Almost pure black background
-          card: '#0a0a0a',     // Slightly lighter black for cards
-          border: '#1f1f1f',   // Subtle dark gray border
-          primary: '#7c3aed',  // Violet 600 (Main Action Color)
-          accent: '#a78bfa',   // Violet 400 (Highlights)
-          text: '#e5e5e5',     // Off-white text
-          muted: '#737373'     // Gray text
+          bg: '#050505',
+          card: '#0a0a0a',
+          border: '#1f1f1f',
+          primary: '#7c3aed',
+          accent: '#a78bfa',
+          text: '#e5e5e5',
         }
+      },
+      // NEW ANIMATIONS FOR QUIZ
+      keyframes: {
+        shake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '25%': { transform: 'translateX(-5px)' },
+          '75%': { transform: 'translateX(5px)' },
+        },
+        'success-pulse': {
+          '0%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(34, 197, 94, 0.7)' },
+          '70%': { transform: 'scale(1.02)', boxShadow: '0 0 0 15px rgba(34, 197, 94, 0)' },
+          '100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(34, 197, 94, 0)' },
+        }
+      },
+      animation: {
+        shake: 'shake 0.4s ease-in-out',
+        'success-pulse': 'success-pulse 0.6s ease-out forwards',
       }
     },
   },

@@ -9,9 +9,11 @@ class SettingsService {
             showReading: true,
             showSentence: true,
             showEnglish: false,
-            darkMode: false, // New
+            darkMode: false,
             // Audio
             autoPlay: true,
+            // Quiz
+            quizChoices: 4 // Default number of options
         };
         
         const saved = localStorage.getItem('flashcard-settings');

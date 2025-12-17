@@ -5,8 +5,6 @@ import { flashcardApp } from './components/FlashcardApp';
 import { quizApp } from './components/QuizApp';
 import { audioService } from './services/audioService';
 
-// --- FOUC FIX ---
-// Remove loading class immediately so transitions can start
 document.body.classList.remove('is-loading');
 
 // --- ELEMENTS ---
@@ -19,36 +17,21 @@ const splash = document.getElementById('splash-screen');
 const startBtn = document.getElementById('start-app-btn');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 
-// --- ROUTER (With 1s Delays) ---
+// --- ROUTER ---
 function showMenu() {
-    // Stop any audio when returning to menu
     audioService.stop();
     flashcardView.classList.add('hidden');
     quizView.classList.add('hidden');
-    // Delay menu appearance
-    setTimeout(() => {
-        mainMenu.classList.remove('translate-y-full', 'opacity-0');
-    }, 50);
+    setTimeout(() => mainMenu.classList.remove('translate-y-full', 'opacity-0'), 50);
 }
-
 function showFlashcard() {
     mainMenu.classList.add('translate-y-full', 'opacity-0');
-    // 1 Second breathing room
-    setTimeout(() => {
-        flashcardView.classList.remove('hidden');
-        flashcardApp.mount('flashcard-view');
-    }, 1000);
+    setTimeout(() => { flashcardView.classList.remove('hidden'); flashcardApp.mount('flashcard-view'); }, 1000);
 }
-
 function showQuiz() {
     mainMenu.classList.add('translate-y-full', 'opacity-0');
-    // 1 Second breathing room
-    setTimeout(() => {
-        quizView.classList.remove('hidden');
-        quizApp.mount('quiz-view');
-    }, 1000);
+    setTimeout(() => { quizView.classList.remove('hidden'); quizApp.mount('quiz-view'); }, 1000);
 }
-
 window.addEventListener('router:home', showMenu);
 menuFlashcardBtn.addEventListener('click', showFlashcard);
 menuQuizBtn.addEventListener('click', showQuiz);
@@ -56,7 +39,10 @@ menuQuizBtn.addEventListener('click', showQuiz);
 // --- STARTUP ---
 const checks = [document.getElementById('check-1'), document.getElementById('check-2'), document.getElementById('check-3')];
 function initApp() {
-    if (settingsService.get().darkMode) document.documentElement.classList.add('dark');
+    const saved = settingsService.get();
+    if (saved.darkMode) document.documentElement.classList.add('dark');
+    applyTypography(saved.fontFamily, saved.fontWeight);
+
     let delay = 500;
     checks.forEach((check, index) => {
         setTimeout(() => {
@@ -76,20 +62,29 @@ function initApp() {
 }
 startBtn.addEventListener('click', () => {
     splash.classList.add('opacity-0', 'pointer-events-none');
-    // 1 Second delay before showing menu
     setTimeout(() => { splash.style.display = 'none'; showMenu(); }, 1000);
 });
 initApp();
 
-// --- SETTINGS LOGIC (Keep existing code) ---
+// --- TYPOGRAPHY HELPER ---
+function applyTypography(family, weight) {
+    document.body.classList.remove('font-inter', 'font-lato', 'font-roboto', 'font-light', 'font-normal', 'font-bold', 'font-black');
+    document.body.classList.add(family, weight);
+}
+
+// --- SETTINGS ---
 const modal = document.getElementById('settings-modal');
 const backdrop = document.getElementById('modal-backdrop');
 const openBtn = document.getElementById('settings-open-btn');
 const doneBtn = document.getElementById('modal-done-btn');
 
+// Inputs
 const targetSelect = document.getElementById('target-select');
 const originSelect = document.getElementById('origin-select');
 const darkToggle = document.getElementById('toggle-dark');
+const fontFamilySelect = document.getElementById('font-family-select');
+const fontWeightSelect = document.getElementById('font-weight-select');
+// Toggles
 const vocabToggle = document.getElementById('toggle-vocab');
 const readingToggle = document.getElementById('toggle-reading');
 const sentenceToggle = document.getElementById('toggle-sentence');
@@ -98,24 +93,17 @@ const audioToggle = document.getElementById('toggle-audio');
 const quizChoicesSelect = document.getElementById('quiz-choices-select');
 
 // Accordions
-const acc1Btn = document.getElementById('display-accordion-btn');
-const acc1Content = document.getElementById('display-options');
-const acc1Arrow = document.getElementById('accordion-arrow-1');
-const acc2Btn = document.getElementById('audio-accordion-btn');
-const acc2Content = document.getElementById('audio-options');
-const acc2Arrow = document.getElementById('accordion-arrow-2');
-const acc3Btn = document.getElementById('quiz-accordion-btn');
-const acc3Content = document.getElementById('quiz-options');
-const acc3Arrow = document.getElementById('accordion-arrow-3');
+const accFontBtn = document.getElementById('font-accordion-btn'); const accFontContent = document.getElementById('font-options'); const accFontArrow = document.getElementById('accordion-arrow-font');
+const acc1Btn = document.getElementById('display-accordion-btn'); const acc1Content = document.getElementById('display-options'); const acc1Arrow = document.getElementById('accordion-arrow-1');
+const acc2Btn = document.getElementById('audio-accordion-btn'); const acc2Content = document.getElementById('audio-options'); const acc2Arrow = document.getElementById('accordion-arrow-2');
+const acc3Btn = document.getElementById('quiz-accordion-btn'); const acc3Content = document.getElementById('quiz-options'); const acc3Arrow = document.getElementById('accordion-arrow-3');
 
-// Logic
 function openModal() { modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 10); }
 function closeModal() { modal.classList.add('opacity-0'); setTimeout(() => modal.classList.add('hidden'), 200); }
 function toggleAccordion(c, a) { c.classList.toggle('hidden'); a.style.transform = c.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)'; }
 
-openBtn.addEventListener('click', openModal);
-doneBtn.addEventListener('click', closeModal);
-backdrop.addEventListener('click', closeModal);
+openBtn.addEventListener('click', openModal); doneBtn.addEventListener('click', closeModal); backdrop.addEventListener('click', closeModal);
+accFontBtn.addEventListener('click', () => toggleAccordion(accFontContent, accFontArrow));
 acc1Btn.addEventListener('click', () => toggleAccordion(acc1Content, acc1Arrow));
 acc2Btn.addEventListener('click', () => toggleAccordion(acc2Content, acc2Arrow));
 acc3Btn.addEventListener('click', () => toggleAccordion(acc3Content, acc3Arrow));
@@ -123,6 +111,10 @@ acc3Btn.addEventListener('click', () => toggleAccordion(acc3Content, acc3Arrow))
 // Updates
 targetSelect.addEventListener('change', (e) => { settingsService.setTarget(e.target.value); flashcardApp.refresh(); });
 originSelect.addEventListener('change', (e) => { settingsService.setOrigin(e.target.value); flashcardApp.refresh(); });
+darkToggle.addEventListener('change', (e) => { settingsService.set('darkMode', e.target.checked); e.target.checked ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark'); });
+fontFamilySelect.addEventListener('change', (e) => { settingsService.set('fontFamily', e.target.value); applyTypography(e.target.value, settingsService.get().fontWeight); });
+fontWeightSelect.addEventListener('change', (e) => { settingsService.set('fontWeight', e.target.value); applyTypography(settingsService.get().fontFamily, e.target.value); });
+
 vocabToggle.addEventListener('change', (e) => { settingsService.set('showVocab', e.target.checked); flashcardApp.refresh(); });
 readingToggle.addEventListener('change', (e) => { settingsService.set('showReading', e.target.checked); flashcardApp.refresh(); });
 sentenceToggle.addEventListener('change', (e) => { settingsService.set('showSentence', e.target.checked); flashcardApp.refresh(); });
@@ -130,26 +122,24 @@ englishToggle.addEventListener('change', (e) => { settingsService.set('showEngli
 audioToggle.addEventListener('change', (e) => { settingsService.set('autoPlay', e.target.checked); });
 quizChoicesSelect.addEventListener('change', (e) => { settingsService.set('quizChoices', e.target.value); });
 
-darkToggle.addEventListener('change', (e) => {
-    settingsService.set('darkMode', e.target.checked);
-    if (e.target.checked) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-});
-
 // Load Saved
 const saved = settingsService.get();
 if(targetSelect) targetSelect.value = saved.targetLang;
 if(originSelect) originSelect.value = saved.originLang;
+darkToggle.checked = saved.darkMode;
+if(fontFamilySelect) fontFamilySelect.value = saved.fontFamily;
+if(fontWeightSelect) fontWeightSelect.value = saved.fontWeight;
 vocabToggle.checked = saved.showVocab;
 readingToggle.checked = saved.showReading;
 sentenceToggle.checked = saved.showSentence;
 englishToggle.checked = saved.showEnglish;
 audioToggle.checked = saved.autoPlay;
-darkToggle.checked = saved.darkMode;
 if(quizChoicesSelect) quizChoicesSelect.value = saved.quizChoices;
 
-// Fullscreen
-fullscreenBtn.addEventListener('click', () => {
-    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(console.log);
-    else if (document.exitFullscreen) document.exitFullscreen();
+fullscreenBtn.addEventListener('click', () => { (!document.fullscreenElement) ? document.documentElement.requestFullscreen().catch(console.log) : document.exitFullscreen(); });
+
+// GLOBAL QUIZ NAV LISTENERS
+document.addEventListener('click', (e) => {
+    if (e.target.closest('#quiz-prev-btn')) quizApp.prev();
+    if (e.target.closest('#quiz-next-btn')) quizApp.next();
 });

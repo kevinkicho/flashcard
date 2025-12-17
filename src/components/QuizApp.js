@@ -8,61 +8,57 @@ export class QuizApp {
     constructor() {
         this.container = null;
         this.currentData = null;
-        this.isAnswered = false;
     }
 
     mount(elementId) {
         this.container = document.getElementById(elementId);
-        this.nextQuestion();
+        this.next();
     }
 
-    nextQuestion(specificId = null) {
-        this.isAnswered = false;
-        // Stop any previous audio before new question loads
+    next(specificId = null) {
         audioService.stop(); 
         this.currentData = quizService.generateQuestion(specificId);
         this.render();
     }
 
+    prev() {
+        // Quiz doesn't really have a "previous" state in random mode,
+        // but for UI consistency, we'll just load another random question.
+        this.next();
+    }
+
     handleAnswer(selectedId, buttonElement) {
-        if (this.isAnswered) return;
-        this.isAnswered = true;
+        // Allow multiple tries, just disable the clicked one.
+        if (buttonElement.disabled) return;
 
         const correctId = this.currentData.target.id;
         const isCorrect = selectedId === correctId;
 
-        // Visual Feedback & Animation
         if (isCorrect) {
-            // Success: Green Pulse Animation
+            // Success Animation
             buttonElement.classList.remove('bg-white', 'dark:bg-dark-card', 'hover:shadow-md');
             buttonElement.classList.add('bg-green-500', 'text-white', 'border-green-500', 'animate-success-pulse', 'shadow-lg');
+            // Disable all buttons on success
+            this.container.querySelectorAll('.quiz-option').forEach(btn => btn.disabled = true);
+            // Auto Advance
+            setTimeout(() => this.next(), 1500);
         } else {
-            // Error: Red Shake Animation
+            // Error Animation & Disable current button
             buttonElement.classList.remove('bg-white', 'dark:bg-dark-card');
-            buttonElement.classList.add('bg-red-500', 'text-white', 'border-red-500', 'animate-shake');
-            
-            // Highlight correct one (subtly)
-            const correctBtn = document.querySelector(`button[data-id="${correctId}"]`);
-            if (correctBtn) {
-                correctBtn.classList.add('ring-2', 'ring-green-400', 'bg-green-50', 'dark:bg-green-900/20');
-            }
+            buttonElement.classList.add('bg-red-500', 'text-white', 'border-red-500', 'animate-shake', 'opacity-50', 'cursor-not-allowed');
+            buttonElement.disabled = true;
         }
-
-        // Auto Advance after animation (1.5s delay)
-        setTimeout(() => {
-            this.nextQuestion();
-        }, 1500);
     }
 
     render() {
         if (!this.container || !this.currentData) return;
         const settings = settingsService.get();
         const { target, choices } = this.currentData;
-        
-        // Determine Font Class based on Target Language
         const fontClass = target.type === 'JAPANESE' ? 'font-jp' : '';
 
-        // --- LAYOUT ---
+        // Dynamic Grid Cols based on choices
+        const gridCols = choices.length === 2 ? 'grid-cols-2' : choices.length === 3 ? 'grid-cols-3' : 'grid-cols-2';
+
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm">
                 <div class="flex items-center">
@@ -81,76 +77,64 @@ export class QuizApp {
                 </div>
             </div>
 
-            <div class="w-full h-full pt-20 pb-6 px-6 flex flex-col items-center max-w-2xl mx-auto">
-                
-                <div class="w-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl dark:shadow-none border-2 border-indigo-100 dark:border-dark-border p-8 mb-8 flex flex-col items-center justify-center min-h-[200px] relative overflow-hidden">
-                    <span class="absolute top-4 w-full text-center text-[10px] font-black uppercase tracking-widest opacity-30 dark:text-gray-400">Select the meaning</span>
-                    
+            <div class="w-full h-full pt-20 pb-28 px-6 flex flex-col items-center max-w-3xl mx-auto">
+                <div class="w-full flex-grow-[2] bg-white dark:bg-dark-card rounded-[2.5rem] shadow-xl dark:shadow-none border-2 border-indigo-100 dark:border-dark-border p-8 mb-6 flex flex-col items-center justify-center min-h-[220px] relative overflow-hidden transition-all">
+                    <span class="absolute top-6 w-full text-center text-[10px] font-black uppercase tracking-widest opacity-30 dark:text-gray-400">Select the meaning</span>
                     <div class="flex-grow w-full flex items-center justify-center overflow-hidden px-4 mt-6">
-                        <span class="font-black text-gray-800 dark:text-white leading-none select-none ${fontClass}" 
-                              data-fit="true">
+                        <span class="font-black text-gray-800 dark:text-white leading-none select-none opacity-0 transition-opacity duration-300 ${fontClass}" data-fit="true">
                              ${target.front.main}
                         </span>
                     </div>
                      ${target.front.sub ? `<div class="mt-4 text-indigo-500 dark:text-dark-primary font-bold text-xl">${target.front.sub}</div>` : ''}
                 </div>
 
-                <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow content-start">
+                <div class="w-full flex-grow grid ${gridCols} gap-4 content-stretch">
                     ${choices.map(choice => `
-                        <button class="quiz-option relative w-full p-5 bg-white dark:bg-dark-card border-2 border-gray-100 dark:border-dark-border rounded-2xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all text-left group" data-id="${choice.id}">
-                            <div class="text-lg font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-dark-primary leading-tight">
+                        <button class="quiz-option relative w-full h-full p-4 bg-white dark:bg-dark-card border-2 border-gray-100 dark:border-dark-border rounded-2xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all flex items-center justify-center group overflow-hidden" data-id="${choice.id}">
+                            <div class="text-lg font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-dark-primary leading-tight text-center opacity-0 transition-opacity duration-300" data-fit="true">
                                 ${choice.back.definition}
                             </div>
                         </button>
                     `).join('')}
                 </div>
             </div>
+
+            <div class="fixed bottom-0 left-0 right-0 p-6 z-40 bg-gradient-to-t from-gray-100 via-gray-100 to-transparent dark:from-dark-bg dark:via-dark-bg">
+                <div class="max-w-md mx-auto flex gap-4">
+                    <button id="quiz-prev-btn" class="flex-1 h-16 bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border text-gray-400 dark:text-gray-500 rounded-3xl shadow-sm active:scale-95 transition-all flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <button id="quiz-next-btn" class="flex-1 h-16 bg-indigo-600 dark:bg-dark-primary text-white border border-transparent rounded-3xl shadow-xl shadow-indigo-200 dark:shadow-none active:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                </div>
+            </div>
         `;
 
         // --- BINDINGS ---
-        // 1. Resize Text
+        // FOUC Fix: Resize then reveal
         requestAnimationFrame(() => {
-            const fitEl = this.container.querySelector('[data-fit="true"]');
-            if (fitEl) textService.fitText(fitEl);
-        });
-
-        // 2. Auto-Play Audio (Immediate)
-        if(settings.autoPlay) {
-             // Small delay to ensure previous audio is cleared and transition is started
-            setTimeout(() => {
-                audioService.speak(target.front.main, settings.targetLang);
-            }, 200);
-        }
-
-        // 3. Event Listeners
-        this.container.querySelectorAll('.quiz-option').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const id = parseInt(e.currentTarget.getAttribute('data-id'));
-                this.handleAnswer(id, e.currentTarget);
+            const fitElements = this.container.querySelectorAll('[data-fit="true"]');
+            fitElements.forEach(el => {
+                textService.fitText(el);
+                // Remove opacity class to fade it in smoothly after resizing
+                requestAnimationFrame(() => el.classList.remove('opacity-0'));
             });
         });
 
-        document.getElementById('quiz-random-btn').addEventListener('click', () => {
-            this.nextQuestion();
+        if(settings.autoPlay) setTimeout(() => audioService.speak(target.front.main, settings.targetLang), 200);
+
+        this.container.querySelectorAll('.quiz-option').forEach(btn => {
+            btn.addEventListener('click', (e) => this.handleAnswer(parseInt(e.currentTarget.getAttribute('data-id')), e.currentTarget));
         });
 
-        document.getElementById('quiz-close-btn').addEventListener('click', () => {
-            // Stop audio when exiting quiz
-            audioService.stop();
-            window.dispatchEvent(new CustomEvent('router:home'));
-        });
-
+        document.getElementById('quiz-random-btn').addEventListener('click', () => this.next());
+        document.getElementById('quiz-close-btn').addEventListener('click', () => { audioService.stop(); window.dispatchEvent(new CustomEvent('router:home')); });
         const idInput = document.getElementById('quiz-id-input');
         idInput.addEventListener('change', (e) => {
             const newId = parseInt(e.target.value);
-            if (vocabService.findIndexById(newId) !== -1) {
-                this.nextQuestion(newId);
-            } else {
-                alert('ID not found');
-                e.target.value = target.id; // reset
-            }
+            vocabService.findIndexById(newId) !== -1 ? this.next(newId) : alert('ID not found');
         });
     }
 }
-
 export const quizApp = new QuizApp();

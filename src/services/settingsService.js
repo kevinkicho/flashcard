@@ -3,7 +3,8 @@ class SettingsService {
         this.config = {
             targetLang: 'ja',
             originLang: 'en',
-            font: 'font-inter',
+            fontFamily: 'font-inter', // Renamed for clarity
+            fontWeight: 'font-normal', // New: 'font-light', 'font-normal', 'font-bold', 'font-black'
             // Display
             showVocab: true,
             showReading: true,
@@ -13,7 +14,7 @@ class SettingsService {
             // Audio
             autoPlay: true,
             // Quiz
-            quizChoices: 4 // Default number of options
+            quizChoices: 4
         };
         
         const saved = localStorage.getItem('flashcard-settings');
@@ -26,7 +27,6 @@ class SettingsService {
 
     setTarget(lang) { this.config.targetLang = lang; this.save(); }
     setOrigin(lang) { this.config.originLang = lang; this.save(); }
-    setFont(font) { this.config.font = font; this.save(); }
     
     set(key, value) {
         this.config[key] = value;

@@ -1,15 +1,15 @@
-/* 1. Tailwind Imports */
+/* 1. Google Fonts Import */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;700;900&display=swap');
+
+/* 2. Tailwind Engine */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 2. Your Custom Imports */
+/* 3. Custom Physics (The 3D Flip Logic) */
 @use 'flashcard';
-@use 'variables' as *;
 
-/* 3. Global Styles using Tailwind */
+/* 4. Global Body Reset */
 body {
-    @apply bg-gray-50 text-gray-900 font-sans min-h-screen flex flex-col items-center justify-center overflow-x-hidden;
+    @apply bg-gray-100 min-h-screen flex flex-col items-center overflow-x-hidden font-sans;
 }
-
-/* ... keep your other custom styles here ... */

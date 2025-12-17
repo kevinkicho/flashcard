@@ -1,4 +1,3 @@
-// ... existing imports ...
 import './services/firebase';
 import './styles/main.scss';
 import { settingsService } from './services/settingsService';
@@ -6,9 +5,10 @@ import { flashcardApp } from './components/FlashcardApp';
 import { quizApp } from './components/QuizApp';
 import { audioService } from './services/audioService';
 
-document.body.classList.remove('is-loading');
+// We allow the HTML fallback script to handle 'is-loading' removal 
+// so that if imports above fail, we still see the error console.
 
-// ... existing elements/router logic ...
+// --- ELEMENTS ---
 const mainMenu = document.getElementById('main-menu');
 const flashcardView = document.getElementById('flashcard-view');
 const quizView = document.getElementById('quiz-view');
@@ -18,26 +18,42 @@ const splash = document.getElementById('splash-screen');
 const startBtn = document.getElementById('start-app-btn');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 
-function showMenu() { audioService.stop(); flashcardView.classList.add('hidden'); quizView.classList.add('hidden'); setTimeout(() => mainMenu.classList.remove('translate-y-full', 'opacity-0'), 50); }
-function showFlashcard() { mainMenu.classList.add('translate-y-full', 'opacity-0'); setTimeout(() => { flashcardView.classList.remove('hidden'); flashcardApp.mount('flashcard-view'); }, 1000); }
-function showQuiz() { mainMenu.classList.add('translate-y-full', 'opacity-0'); setTimeout(() => { quizView.classList.remove('hidden'); quizApp.mount('quiz-view'); }, 1000); }
+// --- ROUTER ---
+function showMenu() {
+    audioService.stop();
+    flashcardView.classList.add('hidden');
+    quizView.classList.add('hidden');
+    setTimeout(() => mainMenu.classList.remove('translate-y-full', 'opacity-0'), 50);
+}
+function showFlashcard() {
+    mainMenu.classList.add('translate-y-full', 'opacity-0');
+    setTimeout(() => { flashcardView.classList.remove('hidden'); flashcardApp.mount('flashcard-view'); }, 1000);
+}
+function showQuiz() {
+    mainMenu.classList.add('translate-y-full', 'opacity-0');
+    setTimeout(() => { quizView.classList.remove('hidden'); quizApp.mount('quiz-view'); }, 1000);
+}
 
 window.addEventListener('router:home', showMenu);
 menuFlashcardBtn.addEventListener('click', showFlashcard);
 menuQuizBtn.addEventListener('click', showQuiz);
 
-// Startup
+// --- STARTUP ---
 const checks = [document.getElementById('check-1'), document.getElementById('check-2'), document.getElementById('check-3')];
 function initApp() {
-    const saved = settingsService.get();
-    if (saved.darkMode) document.documentElement.classList.add('dark');
-    applyTypography(saved.fontFamily, saved.fontWeight);
-    
+    try {
+        const saved = settingsService.get();
+        if (saved.darkMode) document.documentElement.classList.add('dark');
+        applyTypography(saved.fontFamily, saved.fontWeight);
+    } catch(e) { console.error("Init Error", e); }
+
     let delay = 500;
     checks.forEach((check, index) => {
         setTimeout(() => {
-            check.className = "w-4 h-4 bg-green-500 rounded-full flex items-center justify-center transition-colors shadow-lg shadow-green-200";
-            check.innerHTML = `<svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>`;
+            if(check) {
+                check.className = "w-4 h-4 bg-green-500 rounded-full flex items-center justify-center transition-colors shadow-lg shadow-green-200";
+                check.innerHTML = `<svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>`;
+            }
             if (index === checks.length - 1) {
                 setTimeout(() => {
                     startBtn.disabled = false;
@@ -58,24 +74,28 @@ function applyTypography(family, weight) {
     document.body.classList.add(family, weight);
 }
 
-// ... Settings Modal Logic ...
+// --- SETTINGS ---
 const modal = document.getElementById('settings-modal');
 const backdrop = document.getElementById('modal-backdrop');
 const openBtn = document.getElementById('settings-open-btn');
 const doneBtn = document.getElementById('modal-done-btn');
 
-// Existing Inputs
+// Inputs
 const targetSelect = document.getElementById('target-select');
 const originSelect = document.getElementById('origin-select');
 const darkToggle = document.getElementById('toggle-dark');
 const fontFamilySelect = document.getElementById('font-family-select');
 const fontWeightSelect = document.getElementById('font-weight-select');
-// New Quiz Inputs
+const vocabToggle = document.getElementById('toggle-vocab');
+const readingToggle = document.getElementById('toggle-reading');
+const sentenceToggle = document.getElementById('toggle-sentence');
+const englishToggle = document.getElementById('toggle-english');
+const audioToggle = document.getElementById('toggle-audio');
 const quizChoicesSelect = document.getElementById('quiz-choices-select');
 const quizAudioToggle = document.getElementById('toggle-quiz-audio');
 const quizClickToggle = document.getElementById('toggle-quiz-click');
 
-// Accordions logic (same as before) ...
+// Accordions
 const accFontBtn = document.getElementById('font-accordion-btn'); const accFontContent = document.getElementById('font-options'); const accFontArrow = document.getElementById('accordion-arrow-font');
 const acc1Btn = document.getElementById('display-accordion-btn'); const acc1Content = document.getElementById('display-options'); const acc1Arrow = document.getElementById('accordion-arrow-1');
 const acc2Btn = document.getElementById('audio-accordion-btn'); const acc2Content = document.getElementById('audio-options'); const acc2Arrow = document.getElementById('accordion-arrow-2');
@@ -98,7 +118,11 @@ darkToggle.addEventListener('change', (e) => { settingsService.set('darkMode', e
 fontFamilySelect.addEventListener('change', (e) => { settingsService.set('fontFamily', e.target.value); applyTypography(e.target.value, settingsService.get().fontWeight); });
 fontWeightSelect.addEventListener('change', (e) => { settingsService.set('fontWeight', e.target.value); applyTypography(settingsService.get().fontFamily, e.target.value); });
 
-// Quiz Updates
+vocabToggle.addEventListener('change', (e) => { settingsService.set('showVocab', e.target.checked); flashcardApp.refresh(); });
+readingToggle.addEventListener('change', (e) => { settingsService.set('showReading', e.target.checked); flashcardApp.refresh(); });
+sentenceToggle.addEventListener('change', (e) => { settingsService.set('showSentence', e.target.checked); flashcardApp.refresh(); });
+englishToggle.addEventListener('change', (e) => { settingsService.set('showEnglish', e.target.checked); flashcardApp.refresh(); });
+audioToggle.addEventListener('change', (e) => { settingsService.set('autoPlay', e.target.checked); });
 quizChoicesSelect.addEventListener('change', (e) => { settingsService.set('quizChoices', e.target.value); });
 quizAudioToggle.addEventListener('change', (e) => { settingsService.set('quizAnswerAudio', e.target.checked); });
 quizClickToggle.addEventListener('change', (e) => { settingsService.set('quizClickMode', e.target.checked ? 'double' : 'single'); });
@@ -110,11 +134,16 @@ if(originSelect) originSelect.value = saved.originLang;
 darkToggle.checked = saved.darkMode;
 if(fontFamilySelect) fontFamilySelect.value = saved.fontFamily;
 if(fontWeightSelect) fontWeightSelect.value = saved.fontWeight;
+vocabToggle.checked = saved.showVocab;
+readingToggle.checked = saved.showReading;
+sentenceToggle.checked = saved.showSentence;
+englishToggle.checked = saved.showEnglish;
+audioToggle.checked = saved.autoPlay;
 if(quizChoicesSelect) quizChoicesSelect.value = saved.quizChoices;
 if(quizAudioToggle) quizAudioToggle.checked = saved.quizAnswerAudio;
 if(quizClickToggle) quizClickToggle.checked = (saved.quizClickMode === 'double');
 
-// Listeners for Global Nav
+// Listeners
 document.addEventListener('click', (e) => {
     if (e.target.closest('#quiz-prev-btn')) quizApp.prev();
     if (e.target.closest('#quiz-next-btn')) quizApp.next();

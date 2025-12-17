@@ -3,17 +3,24 @@ import './styles/main.scss';
 import { settingsService } from './services/settingsService';
 import { flashcardApp } from './components/FlashcardApp';
 import { quizApp } from './components/QuizApp';
+import { sentencesApp } from './components/SentencesApp';
 import { audioService } from './services/audioService';
 
-// We allow the HTML fallback script to handle 'is-loading' removal 
-// so that if imports above fail, we still see the error console.
+// Fallback: The HTML script does this too, but we do it here if JS loads successfully
+if(document.body.classList.contains('is-loading')) {
+    document.body.classList.remove('is-loading');
+}
 
 // --- ELEMENTS ---
 const mainMenu = document.getElementById('main-menu');
 const flashcardView = document.getElementById('flashcard-view');
 const quizView = document.getElementById('quiz-view');
+const sentencesView = document.getElementById('sentences-view');
+
 const menuFlashcardBtn = document.getElementById('menu-flashcard-btn');
 const menuQuizBtn = document.getElementById('menu-quiz-btn');
+const menuSentencesBtn = document.getElementById('menu-sentences-btn');
+
 const splash = document.getElementById('splash-screen');
 const startBtn = document.getElementById('start-app-btn');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
@@ -21,22 +28,46 @@ const fullscreenBtn = document.getElementById('fullscreen-btn');
 // --- ROUTER ---
 function showMenu() {
     audioService.stop();
-    flashcardView.classList.add('hidden');
-    quizView.classList.add('hidden');
-    setTimeout(() => mainMenu.classList.remove('translate-y-full', 'opacity-0'), 50);
+    if(flashcardView) flashcardView.classList.add('hidden');
+    if(quizView) quizView.classList.add('hidden');
+    if(sentencesView) sentencesView.classList.add('hidden');
+    if(mainMenu) setTimeout(() => mainMenu.classList.remove('translate-y-full', 'opacity-0'), 50);
 }
+
 function showFlashcard() {
-    mainMenu.classList.add('translate-y-full', 'opacity-0');
-    setTimeout(() => { flashcardView.classList.remove('hidden'); flashcardApp.mount('flashcard-view'); }, 1000);
+    if(mainMenu) mainMenu.classList.add('translate-y-full', 'opacity-0');
+    setTimeout(() => { 
+        if(flashcardView) {
+            flashcardView.classList.remove('hidden'); 
+            flashcardApp.mount('flashcard-view'); 
+        }
+    }, 1000);
 }
+
 function showQuiz() {
-    mainMenu.classList.add('translate-y-full', 'opacity-0');
-    setTimeout(() => { quizView.classList.remove('hidden'); quizApp.mount('quiz-view'); }, 1000);
+    if(mainMenu) mainMenu.classList.add('translate-y-full', 'opacity-0');
+    setTimeout(() => { 
+        if(quizView) {
+            quizView.classList.remove('hidden'); 
+            quizApp.mount('quiz-view'); 
+        }
+    }, 1000);
+}
+
+function showSentences() {
+    if(mainMenu) mainMenu.classList.add('translate-y-full', 'opacity-0');
+    setTimeout(() => { 
+        if(sentencesView) {
+            sentencesView.classList.remove('hidden'); 
+            sentencesApp.mount('sentences-view'); 
+        }
+    }, 1000);
 }
 
 window.addEventListener('router:home', showMenu);
-menuFlashcardBtn.addEventListener('click', showFlashcard);
-menuQuizBtn.addEventListener('click', showQuiz);
+if(menuFlashcardBtn) menuFlashcardBtn.addEventListener('click', showFlashcard);
+if(menuQuizBtn) menuQuizBtn.addEventListener('click', showQuiz);
+if(menuSentencesBtn) menuSentencesBtn.addEventListener('click', showSentences);
 
 // --- STARTUP ---
 const checks = [document.getElementById('check-1'), document.getElementById('check-2'), document.getElementById('check-3')];
@@ -45,7 +76,7 @@ function initApp() {
         const saved = settingsService.get();
         if (saved.darkMode) document.documentElement.classList.add('dark');
         applyTypography(saved.fontFamily, saved.fontWeight);
-    } catch(e) { console.error("Init Error", e); }
+    } catch(e) { console.error(e); }
 
     let delay = 500;
     checks.forEach((check, index) => {
@@ -56,17 +87,28 @@ function initApp() {
             }
             if (index === checks.length - 1) {
                 setTimeout(() => {
-                    startBtn.disabled = false;
-                    startBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'scale-95');
-                    startBtn.classList.add('bg-indigo-600', 'dark:bg-dark-primary', 'text-white', 'shadow-xl', 'hover:bg-indigo-700', 'active:scale-95');
-                    startBtn.textContent = "Start Learning";
+                    if(startBtn) {
+                        startBtn.disabled = false;
+                        startBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'scale-95');
+                        startBtn.classList.add('bg-indigo-600', 'dark:bg-dark-primary', 'text-white', 'shadow-xl', 'hover:bg-indigo-700', 'active:scale-95');
+                        startBtn.textContent = "Start Learning";
+                    }
                 }, 500);
             }
         }, delay);
         delay += 600;
     });
 }
-startBtn.addEventListener('click', () => { splash.classList.add('opacity-0', 'pointer-events-none'); setTimeout(() => { splash.style.display = 'none'; showMenu(); }, 1000); });
+
+if(startBtn) {
+    startBtn.addEventListener('click', () => { 
+        if(splash) splash.classList.add('opacity-0', 'pointer-events-none'); 
+        setTimeout(() => { 
+            if(splash) splash.style.display = 'none'; 
+            showMenu(); 
+        }, 1000); 
+    });
+}
 initApp();
 
 function applyTypography(family, weight) {
@@ -74,13 +116,13 @@ function applyTypography(family, weight) {
     document.body.classList.add(family, weight);
 }
 
-// --- SETTINGS ---
+// --- SETTINGS UI ---
 const modal = document.getElementById('settings-modal');
 const backdrop = document.getElementById('modal-backdrop');
 const openBtn = document.getElementById('settings-open-btn');
 const doneBtn = document.getElementById('modal-done-btn');
 
-// Inputs
+// Element Getters
 const targetSelect = document.getElementById('target-select');
 const originSelect = document.getElementById('origin-select');
 const darkToggle = document.getElementById('toggle-dark');
@@ -101,51 +143,54 @@ const acc1Btn = document.getElementById('display-accordion-btn'); const acc1Cont
 const acc2Btn = document.getElementById('audio-accordion-btn'); const acc2Content = document.getElementById('audio-options'); const acc2Arrow = document.getElementById('accordion-arrow-2');
 const acc3Btn = document.getElementById('quiz-accordion-btn'); const acc3Content = document.getElementById('quiz-options'); const acc3Arrow = document.getElementById('accordion-arrow-3');
 
-function openModal() { modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 10); }
-function closeModal() { modal.classList.add('opacity-0'); setTimeout(() => modal.classList.add('hidden'), 200); }
-function toggleAccordion(c, a) { c.classList.toggle('hidden'); a.style.transform = c.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)'; }
+function openModal() { if(modal) { modal.classList.remove('hidden'); setTimeout(() => modal.classList.remove('opacity-0'), 10); }}
+function closeModal() { if(modal) { modal.classList.add('opacity-0'); setTimeout(() => modal.classList.add('hidden'), 200); }}
+function toggleAccordion(c, a) { if(c && a) { c.classList.toggle('hidden'); a.style.transform = c.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)'; }}
 
-openBtn.addEventListener('click', openModal); doneBtn.addEventListener('click', closeModal); backdrop.addEventListener('click', closeModal);
-accFontBtn.addEventListener('click', () => toggleAccordion(accFontContent, accFontArrow));
-acc1Btn.addEventListener('click', () => toggleAccordion(acc1Content, acc1Arrow));
-acc2Btn.addEventListener('click', () => toggleAccordion(acc2Content, acc2Arrow));
-acc3Btn.addEventListener('click', () => toggleAccordion(acc3Content, acc3Arrow));
+if(openBtn) openBtn.addEventListener('click', openModal);
+if(doneBtn) doneBtn.addEventListener('click', closeModal);
+if(backdrop) backdrop.addEventListener('click', closeModal);
+
+if(accFontBtn) accFontBtn.addEventListener('click', () => toggleAccordion(accFontContent, accFontArrow));
+if(acc1Btn) acc1Btn.addEventListener('click', () => toggleAccordion(acc1Content, acc1Arrow));
+if(acc2Btn) acc2Btn.addEventListener('click', () => toggleAccordion(acc2Content, acc2Arrow));
+if(acc3Btn) acc3Btn.addEventListener('click', () => toggleAccordion(acc3Content, acc3Arrow));
 
 // Updates
-targetSelect.addEventListener('change', (e) => { settingsService.setTarget(e.target.value); flashcardApp.refresh(); });
-originSelect.addEventListener('change', (e) => { settingsService.setOrigin(e.target.value); flashcardApp.refresh(); });
-darkToggle.addEventListener('change', (e) => { settingsService.set('darkMode', e.target.checked); e.target.checked ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark'); });
-fontFamilySelect.addEventListener('change', (e) => { settingsService.set('fontFamily', e.target.value); applyTypography(e.target.value, settingsService.get().fontWeight); });
-fontWeightSelect.addEventListener('change', (e) => { settingsService.set('fontWeight', e.target.value); applyTypography(settingsService.get().fontFamily, e.target.value); });
+if(targetSelect) targetSelect.addEventListener('change', (e) => { settingsService.setTarget(e.target.value); flashcardApp.refresh(); });
+if(originSelect) originSelect.addEventListener('change', (e) => { settingsService.setOrigin(e.target.value); flashcardApp.refresh(); });
+if(darkToggle) darkToggle.addEventListener('change', (e) => { settingsService.set('darkMode', e.target.checked); e.target.checked ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark'); });
+if(fontFamilySelect) fontFamilySelect.addEventListener('change', (e) => { settingsService.set('fontFamily', e.target.value); applyTypography(e.target.value, settingsService.get().fontWeight); });
+if(fontWeightSelect) fontWeightSelect.addEventListener('change', (e) => { settingsService.set('fontWeight', e.target.value); applyTypography(settingsService.get().fontFamily, e.target.value); });
 
-vocabToggle.addEventListener('change', (e) => { settingsService.set('showVocab', e.target.checked); flashcardApp.refresh(); });
-readingToggle.addEventListener('change', (e) => { settingsService.set('showReading', e.target.checked); flashcardApp.refresh(); });
-sentenceToggle.addEventListener('change', (e) => { settingsService.set('showSentence', e.target.checked); flashcardApp.refresh(); });
-englishToggle.addEventListener('change', (e) => { settingsService.set('showEnglish', e.target.checked); flashcardApp.refresh(); });
-audioToggle.addEventListener('change', (e) => { settingsService.set('autoPlay', e.target.checked); });
-quizChoicesSelect.addEventListener('change', (e) => { settingsService.set('quizChoices', e.target.value); });
-quizAudioToggle.addEventListener('change', (e) => { settingsService.set('quizAnswerAudio', e.target.checked); });
-quizClickToggle.addEventListener('change', (e) => { settingsService.set('quizClickMode', e.target.checked ? 'double' : 'single'); });
+if(vocabToggle) vocabToggle.addEventListener('change', (e) => { settingsService.set('showVocab', e.target.checked); flashcardApp.refresh(); });
+if(readingToggle) readingToggle.addEventListener('change', (e) => { settingsService.set('showReading', e.target.checked); flashcardApp.refresh(); });
+if(sentenceToggle) sentenceToggle.addEventListener('change', (e) => { settingsService.set('showSentence', e.target.checked); flashcardApp.refresh(); });
+if(englishToggle) englishToggle.addEventListener('change', (e) => { settingsService.set('showEnglish', e.target.checked); flashcardApp.refresh(); });
+if(audioToggle) audioToggle.addEventListener('change', (e) => { settingsService.set('autoPlay', e.target.checked); });
+if(quizChoicesSelect) quizChoicesSelect.addEventListener('change', (e) => { settingsService.set('quizChoices', e.target.value); });
+if(quizAudioToggle) quizAudioToggle.addEventListener('change', (e) => { settingsService.set('quizAnswerAudio', e.target.checked); });
+if(quizClickToggle) quizClickToggle.addEventListener('change', (e) => { settingsService.set('quizClickMode', e.target.checked ? 'double' : 'single'); });
 
 // Load Saved
 const saved = settingsService.get();
 if(targetSelect) targetSelect.value = saved.targetLang;
 if(originSelect) originSelect.value = saved.originLang;
-darkToggle.checked = saved.darkMode;
+if(darkToggle) darkToggle.checked = saved.darkMode;
 if(fontFamilySelect) fontFamilySelect.value = saved.fontFamily;
 if(fontWeightSelect) fontWeightSelect.value = saved.fontWeight;
-vocabToggle.checked = saved.showVocab;
-readingToggle.checked = saved.showReading;
-sentenceToggle.checked = saved.showSentence;
-englishToggle.checked = saved.showEnglish;
-audioToggle.checked = saved.autoPlay;
+if(vocabToggle) vocabToggle.checked = saved.showVocab;
+if(readingToggle) readingToggle.checked = saved.showReading;
+if(sentenceToggle) sentenceToggle.checked = saved.showSentence;
+if(englishToggle) englishToggle.checked = saved.showEnglish;
+if(audioToggle) audioToggle.checked = saved.autoPlay;
 if(quizChoicesSelect) quizChoicesSelect.value = saved.quizChoices;
 if(quizAudioToggle) quizAudioToggle.checked = saved.quizAnswerAudio;
 if(quizClickToggle) quizClickToggle.checked = (saved.quizClickMode === 'double');
 
-// Listeners
+// Listeners for Global Nav
 document.addEventListener('click', (e) => {
     if (e.target.closest('#quiz-prev-btn')) quizApp.prev();
     if (e.target.closest('#quiz-next-btn')) quizApp.next();
 });
-fullscreenBtn.addEventListener('click', () => { (!document.fullscreenElement) ? document.documentElement.requestFullscreen().catch(console.log) : document.exitFullscreen(); });
+if(fullscreenBtn) fullscreenBtn.addEventListener('click', () => { (!document.fullscreenElement) ? document.documentElement.requestFullscreen().catch(console.log) : document.exitFullscreen(); });

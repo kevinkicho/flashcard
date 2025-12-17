@@ -4,14 +4,14 @@ class SettingsService {
             targetLang: 'ja',
             originLang: 'en',
             font: 'font-inter',
-            // Display Config
+            // Display
             showVocab: true,
             showReading: true,
             showSentence: true,
-            showEnglish: false, // New: Show English reference
-            // Audio Config
+            showEnglish: false,
+            darkMode: false, // New
+            // Audio
             autoPlay: true,
-            audioTarget: 'both' // 'vocab', 'sentence', or 'both'
         };
         
         const saved = localStorage.getItem('flashcard-settings');

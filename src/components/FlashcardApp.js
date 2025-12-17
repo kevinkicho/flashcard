@@ -51,18 +51,16 @@ export class FlashcardApp {
         const card = createCardDOM(data);
         this.container.appendChild(card);
 
-        // 1. Fit Text
+        // 1. Fit Text (Find ALL elements with data-fit="true")
         requestAnimationFrame(() => {
-            const fitElement = card.querySelector('[data-fit="true"]');
-            if (fitElement) textService.fitText(fitElement);
+            const fitElements = card.querySelectorAll('[data-fit="true"]');
+            fitElements.forEach(el => textService.fitText(el));
         });
 
-        // 2. Auto Play Audio (Front Word)
+        // 2. Audio
         const settings = settingsService.get();
         if (settings.autoPlay) {
-            // Cancel previous speech immediately
             audioService.stop();
-            // Small delay to feel natural after slide transition
             setTimeout(() => {
                 audioService.speak(data.front.main, settings.targetLang);
             }, 100);

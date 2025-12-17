@@ -6,21 +6,15 @@ class VocabService {
         this.vocabList = dbData.vocab || [];
     }
 
-    getAll() {
-        return this.vocabList;
-    }
+    getAll() { return this.vocabList; }
 
     getFlashcardData() {
         const { targetLang, originLang } = settingsService.get();
         
         return this.vocabList.map(item => {
-            // --- FRONT CARD LOGIC ---
-            // 1. Main Word (The Target Language)
+            // FRONT
             const mainText = item[targetLang] || '...';
-            
-            // 2. Sub Text (Romanization/Pinyin) - Only for specific languages
-            let subText = '';
-            let extraText = ''; // For Japanese Furigana
+            let subText = '', extraText = '';
 
             if (targetLang === 'ja') {
                 extraText = item.ja_furi || ''; 
@@ -33,30 +27,28 @@ class VocabService {
                 subText = item.ru_tr || item.ru_translit || '';
             }
             
-            // Determine type for styling
             const type = (targetLang === 'ja') ? 'JAPANESE' : 
                          (['zh', 'ko', 'ru'].includes(targetLang)) ? 'NON_LATIN' : 'WESTERN';
 
-            // --- BACK CARD LOGIC ---
-            // Definition in the User's Native Language (Origin)
+            // BACK
             const definition = item[originLang] || item['en'] || 'Definition unavailable';
-            
-            // Example Sentences
             const sentenceTarget = item[targetLang + '_ex'] || '';
             const sentenceOrigin = item[originLang + '_ex'] || '';
+
+            // ENGLISH EXTRAS (For "Show English" feature)
+            const englishDef = item['en'] || '';
+            const englishSent = item['en_ex'] || '';
 
             return {
                 id: item.id,
                 type: type,
-                front: {
-                    main: mainText,
-                    sub: subText,
-                    extra: extraText
-                },
-                back: {
-                    definition: definition,
-                    sentenceTarget: sentenceTarget,
-                    sentenceOrigin: sentenceOrigin
+                front: { main: mainText, sub: subText, extra: extraText },
+                back: { 
+                    definition: definition, 
+                    sentenceTarget: sentenceTarget, 
+                    sentenceOrigin: sentenceOrigin,
+                    englishDef: englishDef,
+                    englishSent: englishSent
                 }
             };
         });

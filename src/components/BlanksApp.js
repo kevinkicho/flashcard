@@ -7,8 +7,40 @@ import { vocabService } from '../services/vocabService';
 export class BlanksApp {
     constructor() { this.container = null; this.currentData = null; this.isAnswered = false; }
     mount(elementId) { this.container = document.getElementById(elementId); this.next(); }
-    next(specificId = null) { this.isAnswered = false; audioService.stop(); this.currentData = blanksService.generateQuestion(specificId); if(!this.currentData) { this.next(); return; } this.render(); }
+    
+    next(specificId = null) { 
+        this.isAnswered = false; audioService.stop(); 
+        this.currentData = blanksService.generateQuestion(specificId); 
+        if(!this.currentData) { 
+            // Retry if generation fails (e.g. no sentence found)
+            setTimeout(() => this.next(), 10); 
+            return; 
+        } 
+        this.render(); 
+    }
     prev() { this.next(); }
+
+    playAudioWithBlank() {
+        const settings = settingsService.get();
+        if (!settings.autoPlay) return;
+
+        // "Kare wa _______ mashita"
+        // Split by blank placeholder
+        const parts = this.currentData.sentence.split('_______');
+        
+        if (parts.length > 1) {
+            // Speak Part 1
+            audioService.speak(parts[0], settings.targetLang);
+            // Wait, then Speak Part 2
+            // We approximate delay by length of text + 1s pause
+            const delay = (parts[0].length * 150) + 1000; 
+            setTimeout(() => {
+                audioService.speak(parts[1], settings.targetLang);
+            }, delay);
+        } else {
+            audioService.speak(this.currentData.sentence, settings.targetLang);
+        }
+    }
 
     handleAnswer(selectedId, buttonElement) {
         if (this.isAnswered) return;
@@ -16,21 +48,32 @@ export class BlanksApp {
         const correctId = this.currentData.target.id;
         const isCorrect = selectedId === correctId;
         const questionText = document.getElementById('blanks-question-text');
+        const questionBox = document.getElementById('blanks-question-box');
 
+        // Reset Styles
         buttonElement.className = 'quiz-option relative w-full h-full p-2 rounded-2xl shadow-lg flex items-center justify-center transition-all border-2';
 
         if (isCorrect) {
             buttonElement.classList.add('bg-green-500', 'text-white', 'border-green-600', 'animate-success-pulse');
-            // Reveal answer in sentence
-            questionText.innerHTML = this.currentData.sentence.replace('_______', `<span class="text-green-500 dark:text-green-400 border-b-4 border-green-500">${this.currentData.target.front.main}</span>`);
-            if (settingsService.get().autoPlay) audioService.speak(this.currentData.target.back.sentenceTarget, settingsService.get().targetLang);
+            
+            // Highlight Box
+            questionBox.classList.remove('bg-white', 'dark:bg-dark-card', 'border-indigo-100', 'dark:border-dark-border');
+            questionBox.classList.add('bg-green-500', 'border-green-600', 'shadow-xl');
+            questionText.classList.remove('text-gray-800', 'dark:text-white');
+            questionText.classList.add('text-white');
+
+            // Fill Blank
+            questionText.innerHTML = this.currentData.sentence.replace('_______', `<span class="border-b-4 border-white font-black px-1">${this.currentData.target.front.main}</span>`);
+            
+            // Play Full Sentence
+            if (settingsService.get().autoPlay) audioService.speak(this.currentData.cleanSentence, settingsService.get().targetLang);
+            
             this.container.querySelectorAll('.quiz-option').forEach(btn => btn.disabled = true);
             setTimeout(() => this.next(), 2000);
         } else {
-            buttonElement.classList.add('bg-red-500', 'text-white', 'border-red-600', 'animate-shake');
-            questionText.classList.add('animate-shake'); // Shake sentence too
-            this.isAnswered = false; buttonElement.disabled = true;
-            setTimeout(() => questionText.classList.remove('animate-shake'), 500);
+            buttonElement.classList.add('bg-red-500', 'text-white', 'border-red-600', 'animate-shake', 'opacity-50', 'cursor-not-allowed');
+            buttonElement.disabled = true;
+            this.isAnswered = false; // Retry allowed
         }
     }
 
@@ -48,15 +91,21 @@ export class BlanksApp {
             </div>
 
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 grid-rows-[1fr_1fr] md:grid-rows-1 gap-4">
-                <div class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl dark:shadow-none border-2 border-indigo-100 dark:border-dark-border p-8 flex flex-col items-center justify-center relative overflow-hidden">
+                
+                <div id="blanks-question-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl dark:shadow-none border-2 border-indigo-100 dark:border-dark-border p-8 flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300">
                     <span class="absolute top-6 w-full text-center text-[10px] font-black uppercase tracking-widest opacity-30 dark:text-gray-400">Fill in the blank</span>
-                    <div class="flex-grow w-full flex items-center justify-center overflow-hidden">
-                        <p id="blanks-question-text" class="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white leading-relaxed text-center ${fontClass}">${sentence}</p>
+                    <div class="flex-grow w-full flex items-center justify-center overflow-hidden px-4">
+                        <p id="blanks-question-text" class="text-3xl font-bold text-gray-800 dark:text-white leading-relaxed text-center opacity-0 transition-opacity duration-300 ${fontClass}" data-fit="true">${sentence}</p>
                     </div>
-                    <p class="mt-4 text-gray-500 dark:text-gray-400 italic text-center">${target.back.sentenceOrigin}</p>
+                    <p class="mt-4 text-gray-500 dark:text-gray-400 italic text-center w-full">${target.back.sentenceOrigin}</p>
                 </div>
+
                 <div class="w-full h-full grid ${gridClass} gap-3">
-                    ${choices.map(choice => `<button class="quiz-option relative w-full h-full p-2 bg-white dark:bg-dark-card border-2 border-gray-100 dark:border-dark-border rounded-2xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all flex items-center justify-center group overflow-hidden" data-id="${choice.id}"><div class="text-xl font-black text-gray-800 dark:text-white leading-none text-center ${fontClass}">${choice.front.main}</div></button>`).join('')}
+                    ${choices.map(choice => `
+                        <button class="quiz-option relative w-full h-full p-2 bg-white dark:bg-dark-card border-2 border-gray-100 dark:border-dark-border rounded-2xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all flex items-center justify-center group overflow-hidden" data-id="${choice.id}">
+                            <div class="text-xl font-black text-gray-800 dark:text-white leading-none text-center opacity-0 transition-opacity duration-300 w-full" data-fit="true">${choice.front.main}</div>
+                        </button>
+                    `).join('')}
                 </div>
             </div>
 
@@ -67,6 +116,13 @@ export class BlanksApp {
                 </div>
             </div>
         `;
+
+        requestAnimationFrame(() => {
+            const fitElements = this.container.querySelectorAll('[data-fit="true"]');
+            fitElements.forEach(el => { textService.fitText(el); requestAnimationFrame(() => el.classList.remove('opacity-0')); });
+        });
+
+        this.playAudioWithBlank();
 
         this.container.querySelectorAll('.quiz-option').forEach(btn => { btn.addEventListener('click', (e) => this.handleAnswer(parseInt(e.currentTarget.getAttribute('data-id')), e.currentTarget)); });
         document.getElementById('blanks-random-btn').addEventListener('click', () => this.next());

@@ -8,10 +8,10 @@ class BlanksService {
         const numChoices = parseInt(settings.blanksChoices) || 4;
         const targetLang = settings.targetLang;
 
-        let correctIndex, correctItem, sentence, obscuredSentence;
+        let correctIndex, correctItem, sentence, obscuredSentence, answerWord;
         let attempts = 0;
 
-        // Find a suitable question (must have a sentence containing the vocab word)
+        // Find a suitable question
         do {
             if (specificId !== null && attempts === 0) {
                 correctIndex = vocabService.findIndexById(specificId);
@@ -21,23 +21,38 @@ class BlanksService {
             
             correctItem = fullList[correctIndex];
             sentence = correctItem.back.sentenceTarget;
-            const vocab = correctItem.front.main;
+            const vocab = correctItem.front.main; // The vocab word (e.g. "逃げる")
 
-            // Check if sentence exists and contains the vocab word
-            if (sentence && sentence.includes(vocab)) {
-                 // Replace vocab with blank. Using regex to replace all occurrences just in case.
-                 // We escape special regex characters in the vocab string first.
-                 const escapedVocab = vocab.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                 const regex = new RegExp(escapedVocab, 'g');
-                 obscuredSentence = sentence.replace(regex, '_______');
-                 break;
+            if (sentence) {
+                // STRATEGY 1: Exact Match
+                if (sentence.includes(vocab)) {
+                    const escaped = vocab.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    obscuredSentence = sentence.replace(new RegExp(escaped, 'g'), '_______');
+                    answerWord = vocab;
+                } 
+                // STRATEGY 2: Japanese Conjugation Match (Stem Search)
+                // e.g. Vocab "逃げる" -> Sentence "彼は逃げました"
+                else if (targetLang === 'ja' && vocab.length > 1) {
+                    // Remove last character to find stem (逃げる -> 逃げ)
+                    const stem = vocab.slice(0, -1);
+                    if (sentence.includes(stem)) {
+                        // Find exactly what string in the sentence matches the stem + following chars
+                        // We strictly just replace the stem part to create the blank, 
+                        // implying the user must identify the root concept.
+                        // Or better: Replace the stem portion with blank.
+                        obscuredSentence = sentence.replace(stem, '_______');
+                        answerWord = vocab; // The answer key remains the dictionary form
+                    }
+                }
             }
             
+            if (obscuredSentence) break;
+            
             attempts++;
-            if (specificId !== null) specificId = null; // Give up on specific ID if it fails
-        } while (attempts < fullList.length * 2); // Avoid infinite loop if data is bad
+            if (specificId !== null) specificId = null; 
+        } while (attempts < fullList.length * 2);
 
-        if (!obscuredSentence) return null; // Should handle this in UI if it happens
+        if (!obscuredSentence) return null;
 
         // Select Distractors
         const choices = [correctItem];
@@ -46,7 +61,7 @@ class BlanksService {
         while (choices.length < numChoices) {
             const randIndex = vocabService.getRandomIndex();
             if (!usedIndices.has(randIndex)) {
-                // Ensure distractor isn't the same word even if different ID
+                // Ensure distractor is unique
                 if (fullList[randIndex].front.main !== correctItem.front.main) {
                     choices.push(fullList[randIndex]);
                     usedIndices.add(randIndex);
@@ -62,7 +77,9 @@ class BlanksService {
 
         return {
             target: correctItem,
-            sentence: obscuredSentence,
+            sentence: obscuredSentence, // "彼は_______ました"
+            cleanSentence: sentence,    // "彼は逃げました" (for audio reconstruction)
+            answerWord: answerWord,
             choices: choices
         };
     }

@@ -2,72 +2,98 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Polyglot Flashcards</title>
 </head>
-<body class="bg-gray-100 font-inter"> <button id="settings-open-btn" class="fixed top-6 right-6 z-40 bg-white border border-gray-200 rounded-full w-14 h-14 flex items-center justify-center text-2xl shadow-lg transition-transform active:scale-95 hover:bg-gray-50 focus:outline-none">
-        ⚙️
-    </button>
+<body class="bg-gray-50 text-gray-900 overflow-hidden select-none font-inter transition-all duration-300">
     
-    <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
+    <header class="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md border-b border-gray-200 z-40 flex items-center justify-between px-4 shadow-sm">
         
-        <div id="modal-backdrop" class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"></div>
-        
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 transform transition-all scale-100">
-            
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold text-gray-800">App Settings</h2>
-                <button id="settings-close-btn" class="text-gray-400 hover:text-gray-600">
-                    ✕
-                </button>
-            </div>
+        <button id="fullscreen-btn" class="w-10 h-10 flex items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100 active:scale-95 transition-all">
+            <svg id="icon-maximize" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+            <svg id="icon-minimize" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
 
-            <div class="space-y-5">
+        <div class="text-lg font-black tracking-tighter text-indigo-600">
+            POLYGLOT<span class="text-gray-400">.AI</span>
+        </div>
+
+        <button id="settings-open-btn" class="w-10 h-10 flex items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100 active:scale-95 transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        </button>
+    </header>
+    
+    <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div id="modal-backdrop" class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-6 p-6 transform scale-95 transition-transform duration-200">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">Settings</h2>
+            
+            <div class="space-y-6">
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">I want to learn:</label>
-                    <select id="target-select" class="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
-                        <option value="ja">Japanese</option>
-                        <option value="ko">Korean</option>
-                        <option value="zh">Chinese</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                        <option value="de">German</option>
-                        <option value="it">Italian</option>
-                        <option value="pt">Portuguese</option>
-                        <option value="ru">Russian</option>
-                        <option value="en">English</option>
-                    </select>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Target (Learn)</label>
+                    <div class="relative">
+                        <select id="target-select" class="w-full appearance-none bg-gray-50 border border-gray-200 text-gray-900 text-lg font-medium rounded-xl py-3 px-4 focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="ja">🇯🇵 Japanese</option>
+                            <option value="ko">🇰🇷 Korean</option>
+                            <option value="zh">🇨🇳 Chinese</option>
+                            <option value="es">🇪🇸 Spanish</option>
+                            <option value="fr">🇫🇷 French</option>
+                            <option value="de">🇩🇪 German</option>
+                            <option value="it">🇮🇹 Italian</option>
+                            <option value="pt">🇧🇷 Portuguese</option>
+                            <option value="ru">🇷🇺 Russian</option>
+                            <option value="en">🇺🇸 English</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-500">▼</div>
+                    </div>
                 </div>
                 
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">I speak:</label>
-                    <select id="origin-select" class="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
-                        <option value="en">English</option>
-                        <option value="ja">Japanese</option>
-                        <option value="ko">Korean</option>
-                        <option value="es">Spanish</option>
-                    </select>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Origin (Speak)</label>
+                    <div class="relative">
+                        <select id="origin-select" class="w-full appearance-none bg-gray-50 border border-gray-200 text-gray-900 text-lg font-medium rounded-xl py-3 px-4 focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="en">🇺🇸 English</option>
+                            <option value="ja">🇯🇵 Japanese</option>
+                            <option value="ko">🇰🇷 Korean</option>
+                            <option value="zh">🇨🇳 Chinese</option>
+                            <option value="es">🇪🇸 Spanish</option>
+                            <option value="fr">🇫🇷 French</option>
+                            <option value="de">🇩🇪 German</option>
+                            <option value="it">🇮🇹 Italian</option>
+                            <option value="pt">🇧🇷 Portuguese</option>
+                            <option value="ru">🇷🇺 Russian</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-500">▼</div>
+                    </div>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">App Font:</label>
-                    <select id="font-select" class="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
-                        <option value="font-inter">Inter (Clean)</option>
-                        <option value="font-lato">Lato (Friendly)</option>
-                        <option value="font-roboto">Roboto (Standard)</option>
-                    </select>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">App Font</label>
+                    <div class="relative">
+                        <select id="font-select" class="w-full appearance-none bg-gray-50 border border-gray-200 text-gray-900 text-lg font-medium rounded-xl py-3 px-4 focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="font-inter">Clean (Inter)</option>
+                            <option value="font-lato">Friendly (Lato)</option>
+                            <option value="font-roboto">Classic (Roboto)</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-500">▼</div>
+                    </div>
                 </div>
             </div>
 
-            <div class="mt-8">
-                <button id="modal-done-btn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors">
-                    Done
-                </button>
-            </div>
+            <button id="modal-done-btn" class="w-full mt-8 py-4 bg-indigo-600 active:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">
+                Save Changes
+            </button>
         </div>
     </div>
 
-    <div id="main-content" class="w-full min-h-screen flex flex-col items-center justify-center py-10 transition-colors">
+    <div id="main-content" class="w-full h-screen pt-16 pb-safe flex flex-col relative">
         </div>
 
 </body>

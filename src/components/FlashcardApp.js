@@ -7,24 +7,28 @@ export class FlashcardApp {
         this.container = null;
     }
 
-    // This method injects the Component's HTML into the page
     mount(elementId) {
         const root = document.getElementById(elementId);
         if (!root) return;
 
-        // The Component HTML Template
         root.innerHTML = `
-            <header>
-                <h1>単語 Master</h1>
-            </header>
-            <main id="card-display-area"></main>
-            <div class="controls">
-                <button id="prev-btn">Previous</button>
-                <button id="next-btn">Next</button>
+            <div id="card-display-area" class="flex-grow flex flex-col justify-center w-full"></div>
+            
+            <div class="w-full p-6 pb-8 bg-gradient-to-t from-gray-50 to-transparent">
+                <div class="max-w-md mx-auto flex gap-4">
+                    <button id="prev-btn" class="flex-1 h-14 bg-white border-2 border-gray-200 text-gray-500 font-bold rounded-2xl text-lg shadow-sm active:bg-gray-50 active:scale-95 transition-all">
+                        ←
+                    </button>
+                    <button id="next-btn" class="flex-[2] h-14 bg-indigo-600 text-white font-bold rounded-2xl text-lg shadow-xl shadow-indigo-200 active:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-2">
+                        Next Word
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
             </div>
         `;
 
-        // Grab references to the new elements we just created
         this.container = document.getElementById('card-display-area');
         this.bindEvents();
         this.render();
@@ -37,23 +41,18 @@ export class FlashcardApp {
 
     next() {
         const list = vocabService.getAll();
-        if (this.currentIndex < list.length - 1) {
-            this.currentIndex++;
-            this.render();
-        } else {
-            this.currentIndex = 0;
-            this.render();
-        }
+        // Infinite Loop Logic
+        this.currentIndex = (this.currentIndex + 1) % list.length;
+        this.render();
     }
 
     prev() {
-        if (this.currentIndex > 0) {
-            this.currentIndex--;
-            this.render();
-        }
+        const list = vocabService.getAll();
+        // Infinite Loop Logic (Backwards)
+        this.currentIndex = (this.currentIndex - 1 + list.length) % list.length;
+        this.render();
     }
 
-    // Public method to force a refresh (e.g. when language changes)
     refresh() {
         this.render();
     }
@@ -62,7 +61,7 @@ export class FlashcardApp {
         const list = vocabService.getFlashcardData();
         
         if (!list || list.length === 0) {
-            this.container.innerHTML = '<p>No data found.</p>';
+            this.container.innerHTML = '<p class="text-center text-gray-400">No vocabulary found.</p>';
             return;
         }
 
@@ -73,5 +72,4 @@ export class FlashcardApp {
     }
 }
 
-// Export a single instance
 export const flashcardApp = new FlashcardApp();

@@ -1,31 +1,29 @@
 export const textService = {
-    // 1. MAXIMIZE TEXT SIZE (No Wrap)
     fitText(element) {
         if (!element) return;
         
-        // Force single line
+        // 1. Reset to minimum to ensure container isn't stretched by old large text
+        element.style.fontSize = '10px';
         element.style.whiteSpace = 'nowrap';
         element.style.display = 'inline-block';
-        element.style.width = 'auto'; // Allow it to expand to measure
+        element.style.width = 'auto'; 
         
+        // 2. Get constraints
         const parent = element.parentElement;
-        const maxWidth = parent.clientWidth;
-        const maxHeight = parent.clientHeight;
+        // Use simpler dimensions to avoid padding confusion
+        const maxWidth = parent.offsetWidth - 20; // Safety padding
+        const maxHeight = parent.offsetHeight - 10;
 
         let min = 10;
-        let max = 200; // Start huge
+        let max = 150; // Cap max size reasonable for UI
         let optimal = min;
 
-        // Binary Search for best fit
+        // 3. Binary Search
         while (min <= max) {
             const current = Math.floor((min + max) / 2);
             element.style.fontSize = `${current}px`;
             
-            // Measure actual dimensions
-            const width = element.scrollWidth;
-            const height = element.scrollHeight;
-
-            if (width <= maxWidth && height <= maxHeight) {
+            if (element.scrollWidth <= maxWidth && element.scrollHeight <= maxHeight) {
                 optimal = current;
                 min = current + 1;
             } else {
@@ -33,21 +31,14 @@ export const textService = {
             }
         }
         
-        // Apply final size (slightly reduced for padding safety)
-        element.style.fontSize = `${optimal - 4}px`;
+        // 4. Apply Final
+        element.style.fontSize = `${optimal}px`;
     },
 
-    // 2. SMART WRAPPING
     formatSentence(text, lang) {
         if (!text) return '';
-        if (lang === 'ja') {
-            return text
-                .replace(/([、。！？])/g, '$1<wbr>')
-                .replace(/(て|と|が|は|を|に|で)(?![、。])/g, '$1<wbr>');
-        }
-        if (lang === 'zh') {
-            return `<span style="word-break: break-all;">${text}</span>`;
-        }
+        if (lang === 'ja') return text.replace(/([、。！？])/g, '$1<wbr>').replace(/(て|と|が|は|を|に|で)(?![、。])/g, '$1<wbr>');
+        if (lang === 'zh') return `<span style="word-break: break-all;">${text}</span>`;
         return text;
     }
 };

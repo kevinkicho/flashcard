@@ -1,83 +1,94 @@
+import { settingsService } from '../services/settingsService';
+import { textService } from '../services/textService';
+
 export function createCardDOM(data) {
+    const settings = settingsService.get();
+    
+    // --- DATA PREP ---
+    const englishDef = (settings.showEnglish && settings.originLang !== 'en') ? ` / ${data.back.englishDef || ''}` : '';
+    const englishSent = (settings.showEnglish && settings.originLang !== 'en') ? `<div class="mt-1 text-indigo-400">${data.back.englishSent || ''}</div>` : '';
+
     const scene = document.createElement('div');
-    // Mobile-first sizing
-    scene.className = 'flashcard-scene w-[85vw] h-[60vh] md:w-[380px] md:h-[520px] mx-auto mt-6 relative z-10';
+    // Full width/height available in main container
+    scene.className = 'flashcard-scene w-[90vw] h-full max-h-[65vh] md:w-[450px] md:h-[600px] mx-auto relative z-10';
 
     const inner = document.createElement('div');
     inner.className = 'flashcard-inner';
 
-    // --- FRONT BUILDER ---
-    let frontHTML = '';
-    
-    // We remove 'font-sans' here to let the global font take over
-    if (data.type === 'JAPANESE') {
-        frontHTML = `
-            <div class="flex flex-col items-center justify-center h-full">
-                <span class="text-xl text-gray-400 font-medium mb-1">${data.front.extra}</span>
-                <span class="text-7xl font-black text-gray-800 font-jp mb-4 leading-tight">${data.front.main}</span>
-                ${data.front.sub ? `<span class="px-3 py-1 bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider text-xs rounded-lg">${data.front.sub}</span>` : ''}
-            </div>
-        `;
-    } else if (data.type === 'NON_LATIN') {
-        frontHTML = `
-             <div class="flex flex-col items-center justify-center h-full">
-                <div class="text-6xl font-black text-gray-800 mb-6 leading-tight">${data.front.main}</div>
-                ${data.front.sub ? `<div class="px-3 py-1 bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider text-xs rounded-lg">${data.front.sub}</div>` : ''}
-            </div>
-        `;
-    } else {
-        frontHTML = `
-             <div class="flex flex-col items-center justify-center h-full">
-                <div class="text-5xl font-black text-gray-800 leading-tight text-center break-words px-2">
-                    ${data.front.main}
-                </div>
-            </div>
-        `;
-    }
+    // --- FRONT ---
+    const showReading = settings.showReading && (data.front.extra || data.front.sub);
+    const vocabHTML = settings.showVocab ? `
+        <div class="flex-grow w-full flex items-center justify-center overflow-hidden px-4">
+            <span class="font-black text-gray-800 leading-none select-none" 
+                  data-fit="true" 
+                  style="white-space: nowrap;">
+                 ${data.front.main}
+            </span>
+        </div>
+    ` : '';
 
-    // --- FRONT FACE ---
+    const frontContent = `
+        <div class="flex flex-col items-center justify-center h-full py-8 gap-4">
+            ${showReading && data.front.extra ? `<span class="text-2xl text-gray-400 font-medium">${data.front.extra}</span>` : ''}
+            ${vocabHTML}
+            ${showReading && data.front.sub ? `<span class="text-lg text-indigo-500 font-bold tracking-wider">${data.front.sub}</span>` : ''}
+        </div>
+    `;
+
     const front = document.createElement('div');
-    front.className = 'card-face card-front bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-2 border-gray-100 flex flex-col p-6';
-    front.innerHTML = `
-        <div class="w-full flex justify-between items-center opacity-30 mb-4">
-            <span class="text-[10px] font-black uppercase tracking-widest">Question</span>
-            <span class="text-[10px] font-black uppercase tracking-widest">Tap to Flip</span>
+    front.className = 'card-face card-front bg-white rounded-[2rem] shadow-2xl border border-gray-100 p-0 overflow-hidden';
+    front.innerHTML = frontContent;
+
+    // --- BACK (Grid Layout) ---
+    // We use a CSS Grid that changes columns based on orientation/width
+    const formattedSentence = textService.formatSentence(data.back.sentenceTarget, settings.targetLang);
+    const sentenceHTML = settings.showSentence ? `
+        <div class="flex flex-col gap-1">
+            <p class="text-2xl font-bold text-gray-800 leading-relaxed">${formattedSentence}</p>
+            <p class="text-base text-gray-500">${data.back.sentenceOrigin}${englishSent}</p>
         </div>
-        <div class="flex-grow w-full relative">
-            ${frontHTML}
+    ` : '';
+
+    const backContent = `
+        <div class="h-full w-full grid grid-rows-[auto_1fr] md:grid-rows-2 p-8 gap-8 text-center items-center justify-center">
+            
+            <div class="flex flex-col items-center justify-center border-b border-gray-100 pb-6 md:border-none md:pb-0">
+                <h2 class="text-4xl font-black text-indigo-600 leading-tight">
+                    ${data.back.definition}
+                    <span class="text-xl font-medium text-indigo-300 block mt-2">${englishDef}</span>
+                </h2>
+            </div>
+
+            <div class="flex items-center justify-center w-full">
+                ${sentenceHTML}
+            </div>
         </div>
     `;
 
-    // --- BACK FACE ---
     const back = document.createElement('div');
-    // Added 'items-center text-center' for horizontal centering
-    back.className = 'card-face card-back bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-2 border-gray-100 flex flex-col items-center text-center p-6 pt-10';
-    
-    back.innerHTML = `
-        <span class="absolute top-6 text-[10px] font-black text-gray-300 uppercase tracking-widest">Answer</span>
-        
-        <div class="flex-grow flex items-center justify-center w-full">
-            <h2 class="text-3xl font-extrabold text-indigo-600 leading-tight">
-                ${data.back.definition}
-            </h2>
-        </div>
-        
-        <div class="w-full bg-gray-50 rounded-2xl p-4 text-left border border-gray-100">
-            <p class="text-base text-gray-800 font-semibold mb-1 leading-snug">
-                ${data.back.sentenceTarget}
-            </p>
-            <p class="text-sm text-gray-500 italic">
-                ${data.back.sentenceOrigin}
-            </p>
-        </div>
-    `;
+    back.className = 'card-face card-back bg-white rounded-[2rem] shadow-2xl border border-gray-100 p-0 overflow-hidden';
+    back.innerHTML = backContent;
 
     inner.appendChild(front);
     inner.appendChild(back);
     scene.appendChild(inner);
 
+    // FLIP LOGIC & AUDIO TRIGGER
     scene.addEventListener('click', () => {
-        inner.classList.toggle('is-flipped');
+        const isFlipped = inner.classList.toggle('is-flipped');
+        
+        // Play Audio on Flip (Back Side = Sentence)
+        if (isFlipped && settings.autoPlay) {
+            // Wait slightly for animation
+            setTimeout(() => {
+                // Play Sentence
+                // We use a regex to strip HTML tags from sentence for TTS
+                const cleanSentence = data.back.sentenceTarget.replace(/<[^>]*>?/gm, '');
+                import('../services/audioService').then(({audioService}) => {
+                    audioService.speak(cleanSentence, settings.targetLang);
+                });
+            }, 300);
+        }
     });
 
     return scene;

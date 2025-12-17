@@ -1,35 +1,33 @@
 class SettingsService {
     constructor() {
-        // Default Settings
         this.config = {
             targetLang: 'ja',
             originLang: 'en',
-            font: 'font-inter' // Default font class
+            font: 'font-inter',
+            // Display Config
+            showVocab: true,
+            showReading: true,
+            showSentence: true,
+            showEnglish: false, // New: Show English reference
+            // Audio Config
+            autoPlay: true,
+            audioTarget: 'both' // 'vocab', 'sentence', or 'both'
         };
         
-        // Load from localStorage if available
         const saved = localStorage.getItem('flashcard-settings');
         if (saved) {
             this.config = { ...this.config, ...JSON.parse(saved) };
         }
     }
 
-    get() {
-        return this.config;
-    }
+    get() { return this.config; }
 
-    setTarget(lang) {
-        this.config.targetLang = lang;
-        this.save();
-    }
-
-    setOrigin(lang) {
-        this.config.originLang = lang;
-        this.save();
-    }
-
-    setFont(fontClass) {
-        this.config.font = fontClass;
+    setTarget(lang) { this.config.targetLang = lang; this.save(); }
+    setOrigin(lang) { this.config.originLang = lang; this.save(); }
+    setFont(font) { this.config.font = font; this.save(); }
+    
+    set(key, value) {
+        this.config[key] = value;
         this.save();
     }
 

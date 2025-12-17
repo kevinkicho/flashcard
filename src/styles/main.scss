@@ -1,4 +1,5 @@
 @use 'variables' as *;
+@use "sass:color";
 
 body {
     margin: 0;
@@ -75,7 +76,8 @@ body {
 }
 
 .card-back {
-    background: linear-gradient(135deg, $secondary-color 0%, darken($secondary-color, 10%) 100%);
+    /* FIXED: Used color.adjust instead of darken */
+    background: linear-gradient(135deg, $secondary-color 0%, color.adjust($secondary-color, $lightness: -10%) 100%);
     color: white;
     transform: rotateY(180deg);
 

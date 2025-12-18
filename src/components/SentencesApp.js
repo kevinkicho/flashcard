@@ -40,6 +40,13 @@ export class SentencesApp {
         this.loadGame(); 
     }
 
+    // Fixed: Added the missing function for audio playback
+    playTargetAudio() {
+        if (this.currentData) {
+            audioService.speak(this.currentData.cleanSentence, settingsService.get().targetLang);
+        }
+    }
+
     loadGame() {
         const list = vocabService.getFlashcardData();
         if (!list || !list.length) { this.renderError(); return; }
@@ -58,7 +65,7 @@ export class SentencesApp {
         if (window.saveGameHistory) window.saveGameHistory('sentences', item.id);
         
         this.render();
-        if (settings.autoPlay) setTimeout(() => audioService.speak(clean, settings.targetLang), 300);
+        if (settings.autoPlay) setTimeout(() => this.playTargetAudio(), 300);
     }
 
     handleBankClick(idx) { 
@@ -85,7 +92,7 @@ export class SentencesApp {
             if (u.replace(/\s/g, '') === t.replace(/\s/g, '')) {
                 const zone = this.container.querySelector('#sentence-drop-zone');
                 if (zone) zone.classList.add('bg-green-100', 'border-green-500');
-                if (settingsService.get().sentAutoPlayCorrect) audioService.speak(this.currentData.cleanSentence, settingsService.get().targetLang);
+                if (settingsService.get().sentAutoPlayCorrect) this.playTargetAudio();
                 setTimeout(()=>this.next(), 1500);
             }
         }
@@ -114,8 +121,19 @@ export class SentencesApp {
                 </div>
             </div>
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div id="sent-hint-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-4 flex flex-col relative"><div class="mt-2 text-center flex-none"><h2 class="text-lg font-bold text-gray-500 dark:text-gray-400">${item.back.sentenceOrigin}</h2></div><div id="sentence-drop-zone" class="flex-grow mt-3 bg-gray-50 dark:bg-black/20 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl p-2 flex flex-wrap content-start gap-2 overflow-y-auto">${this.userSentence.map((obj, i) => `<button class="user-word px-3 py-2 bg-indigo-600 text-white rounded-lg shadow-md font-bold text-xl" data-index="${i}">${obj.word}</button>`).join('')}</div></div>
-                <div class="w-full h-full bg-gray-100 dark:bg-dark-bg/50 rounded-[2rem] p-2 overflow-y-auto"><div class="flex flex-wrap gap-2 justify-center content-start h-full">${this.shuffledWords.map((obj, i) => `<button class="bank-word flex-grow min-w-[60px] px-3 py-3 bg-white dark:bg-dark-card border-b-4 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-white rounded-xl shadow-sm text-xl font-bold ${this.wordBankStatus[i]?'opacity-0 pointer-events-none':''}" data-index="${i}">${obj.word}</button>`).join('')}</div></div>
+                <div id="sent-hint-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-4 flex flex-col relative">
+                    <div class="mt-2 text-center flex-none">
+                        <h2 class="text-lg font-bold text-gray-500 dark:text-gray-400">${item.back.sentenceOrigin}</h2>
+                    </div>
+                    <div id="sentence-drop-zone" class="flex-grow mt-3 bg-gray-50 dark:bg-black/20 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl p-2 flex flex-wrap content-start gap-2 overflow-y-auto">
+                        ${this.userSentence.map((obj, i) => `<button class="user-word px-3 py-2 bg-indigo-600 text-white rounded-lg shadow-md font-bold text-xl" data-index="${i}">${obj.word}</button>`).join('')}
+                    </div>
+                </div>
+                <div class="w-full h-full bg-gray-100 dark:bg-dark-bg/50 rounded-[2rem] p-2 overflow-y-auto">
+                    <div class="flex flex-wrap gap-2 justify-center content-start h-full">
+                        ${this.shuffledWords.map((obj, i) => `<button class="bank-word flex-grow min-w-[60px] px-3 py-3 bg-white dark:bg-dark-card border-b-4 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-white rounded-xl shadow-sm text-xl font-bold ${this.wordBankStatus[i]?'opacity-0 pointer-events-none':''}" data-index="${i}">${obj.word}</button>`).join('')}
+                    </div>
+                </div>
             </div>
             <div class="fixed bottom-0 left-0 right-0 p-6 z-40 bg-gradient-to-t from-gray-100 via-gray-100 to-transparent dark:from-dark-bg"><div class="max-w-md mx-auto flex gap-4"><button id="sent-prev-btn" class="flex-1 h-16 bg-white border border-gray-200 rounded-3xl shadow-sm flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg></button><button id="sent-next-btn" class="flex-1 h-16 bg-indigo-600 text-white rounded-3xl shadow-xl flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg></button></div></div>
         `;
@@ -124,7 +142,10 @@ export class SentencesApp {
         this.bind('#sent-prev-btn', 'click', () => this.prev());
         this.bind('#sent-random-btn', 'click', () => this.random());
         this.bind('#sent-close-btn', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
-        this.bind('#sent-hint-box', 'click', (e) => { if(e.target.id==='sent-hint-box') this.playTargetAudio(); });
+        this.bind('#sent-hint-box', 'click', (e) => { 
+            // Play audio if the box itself or non-word elements inside are clicked
+            if(!e.target.closest('.user-word')) this.playTargetAudio(); 
+        });
         this.bind('#sent-id-input', 'change', (e) => this.next(parseInt(e.target.value)));
 
         this.container.querySelectorAll('.bank-word').forEach(btn => btn.addEventListener('click', () => this.handleBankClick(parseInt(btn.dataset.index))));

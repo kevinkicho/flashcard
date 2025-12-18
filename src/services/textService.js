@@ -118,7 +118,6 @@ export const textService = {
             const cleanVocab = vocab.replace(/\s+/g, '');
             let currentMapStr = "";
             
-            // Map chunks to character indices
             const chunkMap = processed.map((chunk, idx) => {
                 const cleanChunk = chunk.replace(/\s+/g, '');
                 const start = currentMapStr.length;
@@ -127,7 +126,6 @@ export const textService = {
                 return { idx, start, end };
             });
 
-            // Find all occurrences of vocab in the sentence
             const vocabRanges = [];
             let searchPos = 0;
             let foundIdx = currentMapStr.indexOf(cleanVocab, searchPos);
@@ -137,7 +135,6 @@ export const textService = {
                 foundIdx = currentMapStr.indexOf(cleanVocab, searchPos);
             }
 
-            // Merge chunks that fall within vocab ranges
             if (vocabRanges.length > 0) {
                 const groups = Array.from({ length: processed.length }, (_, i) => i);
                 
@@ -146,7 +143,6 @@ export const textService = {
                     let endIndex = -1;
                     for(let i=0; i<chunkMap.length; i++) {
                         const c = chunkMap[i];
-                        // If chunk overlaps with vocab range
                         if (c.start < vRange.end && c.end > vRange.start) { 
                             if (startIndex === -1) startIndex = i; 
                             endIndex = i; 
@@ -176,6 +172,20 @@ export const textService = {
                 if (currentChunk) mergedChunks.push(currentChunk); 
                 processed = mergedChunks;
             }
+        }
+
+        // Pass 2.5: Final check for broken vocab chunks before punctuation
+        if (vocab && vocab.length > 1) {
+            const repairPass = [];
+            for (let i = 0; i < processed.length; i++) {
+                if (i < processed.length - 1 && (processed[i] + processed[i+1]).includes(vocab)) {
+                    repairPass.push(processed[i] + processed[i+1]);
+                    i++;
+                } else {
+                    repairPass.push(processed[i]);
+                }
+            }
+            processed = repairPass;
         }
 
         // Pass 3: Punctuation Merging

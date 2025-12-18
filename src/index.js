@@ -3,12 +3,23 @@ import './styles/main.scss';
 import { settingsService } from './services/settingsService';
 import { vocabService } from './services/vocabService';
 import { dictionaryService } from './services/dictionaryService';
-import { auth, signInAnonymously, onAuthStateChanged, googleProvider, signInWithPopup, signOut, update, ref, db } from './services/firebase';
+import { auth, onAuthStateChanged, googleProvider, signInWithPopup, signOut, update, ref, db } from './services/firebase';
 import { flashcardApp } from './components/FlashcardApp';
 import { quizApp } from './components/QuizApp';
 import { sentencesApp } from './components/SentencesApp';
 import { blanksApp } from './components/BlanksApp';
 import { audioService } from './services/audioService';
+
+// --- PWA REGISTRATION ---
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(reg => {
+            console.log('SW Registered:', reg.scope);
+        }).catch(err => {
+            console.log('SW Registration failed:', err);
+        });
+    });
+}
 
 // --- PERSISTENCE (Safe Load) ---
 let savedHistory = {};
@@ -66,13 +77,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const isAdmin = currentUser && currentUser.email === 'kevinkicho@gmail.com';
         document.querySelectorAll('#btn-save-vocab, .btn-save-dict, #btn-add-dict').forEach(btn => {
             if(btn.id === 'btn-add-dict') btn.style.display = isAdmin ? 'block' : 'none';
-            else btn.disabled = !isAdmin;
+            else {
+                btn.disabled = !isAdmin;
+                // Strictly hide the button for non-admins
+                btn.style.display = isAdmin ? 'block' : 'none';
+            }
         });
     }
 
     // --- ROUTER ---
     function renderView(viewName) {
-        audioService.stop();
+        audioService.stop(); // Stop audio when navigating away
         if (viewName === 'home') document.body.classList.remove('game-mode');
         else document.body.classList.add('game-mode');
 
@@ -106,18 +121,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (results.length > 0 && popup) {
             popupContent.innerHTML = results.map(data => `
                 <div class="flex flex-col gap-2 mb-4 border-b border-gray-100 dark:border-gray-800 pb-4">
-                    <div class="flex items-end gap-3"><div class="text-4xl font-black text-indigo-600 dark:text-indigo-400">${data.simp}</div>${data.trad!==data.simp?`<div class="text-xl text-gray-500 font-serif">${data.trad}</div>`:''}</div>
+                    <div class="flex items-end gap-3"><div class="text-4xl font-black text-indigo-600 dark:text-indigo-400">${data.s}</div>${data.t!==data.s?`<div class="text-xl text-gray-500 font-serif">${data.t}</div>`:''}</div>
                     <div class="pl-1 space-y-1">
-                        <div class="flex items-center gap-2"><span class="text-[10px] text-gray-400 uppercase font-bold w-12">Pinyin</span><span class="text-lg font-medium text-gray-800 dark:text-white">${data.pinyin||'-'}</span></div>
-                        <div class="flex items-start gap-2"><span class="text-[10px] text-gray-400 uppercase font-bold w-12 mt-1">English</span><span class="text-sm text-gray-600 dark:text-gray-300 flex-1">${data.en||'-'}</span></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] text-gray-400 uppercase font-bold w-12">Pinyin</span><span class="text-lg font-medium text-gray-800 dark:text-white">${data.p||'-'}</span></div>
+                        <div class="flex items-start gap-2"><span class="text-[10px] text-gray-400 uppercase font-bold w-12 mt-1">English</span><span class="text-sm text-gray-600 dark:text-gray-300 flex-1">${data.e||'-'}</span></div>
                         <div class="flex items-start gap-2"><span class="text-[10px] text-gray-400 uppercase font-bold w-12 mt-1">Korean</span><span class="text-sm text-gray-600 dark:text-gray-300 flex-1">${data.ko||'-'}</span></div>
                     </div>
                 </div>
             `).join('');
             popup.classList.remove('hidden');
             setTimeout(() => popup.classList.remove('opacity-0'), 10);
-            
-            // NO AUTO PLAY AUDIO HERE
         }
     }
     if(popupClose) popupClose.addEventListener('click', () => { popup.classList.add('opacity-0'); setTimeout(() => popup.classList.add('hidden'), 200); });
@@ -182,12 +195,12 @@ document.addEventListener('DOMContentLoaded', () => {
             div.className = "bg-gray-100 dark:bg-black/20 p-4 rounded-xl border border-gray-200 dark:border-gray-700";
             div.innerHTML = `
                 <div class="flex justify-between items-center mb-2">
-                    <span class="text-2xl font-black text-indigo-600 dark:text-indigo-400">${entry.simp}</span>
+                    <span class="text-2xl font-black text-indigo-600 dark:text-indigo-400">${entry.s}</span>
                     <span class="text-xs font-mono text-gray-400 bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded">ID: ${entry.id || '?'}</span>
                 </div>
                 <div class="grid grid-cols-1 gap-2 text-sm">
-                    <input class="p-2 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 dark:text-white" value="${entry.pinyin || ''}" placeholder="Pinyin" id="dict-p-${entry.id}">
-                    <input class="p-2 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 dark:text-white" value="${entry.en || ''}" placeholder="English" id="dict-e-${entry.id}">
+                    <input class="p-2 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 dark:text-white" value="${entry.p || ''}" placeholder="Pinyin" id="dict-p-${entry.id}">
+                    <input class="p-2 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 dark:text-white" value="${entry.e || ''}" placeholder="English" id="dict-e-${entry.id}">
                     <input class="p-2 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 dark:text-white" value="${entry.ko || ''}" placeholder="Korean" id="dict-k-${entry.id}">
                     <button class="btn-save-dict w-full mt-2 py-2 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600 transition-colors" data-id="${entry.id}">SAVE ENTRY</button>
                 </div>
@@ -225,24 +238,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (item) {
                     currentEditId = item.id;
+                    const fullData = vocabService.getAll().find(v => v.id == item.id);
+
                     editModal.classList.remove('hidden');
                     setTimeout(()=>editModal.classList.remove('opacity-0'), 10);
                     switchEditTab('vocab');
                     
                     document.getElementById('edit-vocab-id').textContent = `ID: ${item.id}`;
-                    document.getElementById('inp-vocab-target').value = item.front.main || '';
-                    document.getElementById('inp-vocab-origin').value = item.back.definition || '';
-                    document.getElementById('inp-vocab-sentence-t').value = item.back.sentenceTarget || '';
-                    document.getElementById('inp-vocab-sentence-o').value = item.back.sentenceOrigin || '';
+                    document.getElementById('inp-vocab-target').value = fullData[settingsService.get().targetLang] || '';
+                    document.getElementById('inp-vocab-origin').value = fullData[settingsService.get().originLang] || '';
+                    document.getElementById('inp-vocab-sentence-t').value = fullData[settingsService.get().targetLang + '_ex'] || '';
+                    document.getElementById('inp-vocab-sentence-o').value = fullData[settingsService.get().originLang + '_ex'] || '';
                     
-                    // GATHER ALL TEXT FOR DICTIONARY
-                    let combinedText = (item.front.main||"") + (item.back.sentenceTarget||"") + (item.front.sub||"") + (item.back.definition||"");
-                    if (app.currentData && app.currentData.choices) {
-                        app.currentData.choices.forEach(c => combinedText += (c.front.main||"") + (c.back.definition||""));
-                    }
-                    if (app.shuffledWords) app.shuffledWords.forEach(w => combinedText += w.word);
-
-                    populateDictionaryEdit(combinedText);
+                    // Show entire vocab data in the "Vocab" tab as requested
+                    const scanText = (fullData.ja||'') + (fullData.ja_ex||'') + (fullData.zh||'') + (fullData.ko||'');
+                    populateDictionaryEdit(scanText);
                     updateEditPermissions();
                 }
             }
@@ -315,7 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateAllApps() { if(!views.flashcard.classList.contains('hidden')) flashcardApp.refresh(); }
     
-    // Bind all inputs
     bindSetting('target-select', 'targetLang', updateAllApps);
     bindSetting('origin-select', 'originLang', updateAllApps);
     bindSetting('toggle-dark', 'darkMode', () => document.documentElement.classList.toggle('dark'));
@@ -349,7 +358,6 @@ document.addEventListener('DOMContentLoaded', () => {
             loadSettingsToUI();
             if(saved.darkMode) document.documentElement.classList.add('dark');
             
-            await signInAnonymously(auth);
             await Promise.all([vocabService.fetchData(), dictionaryService.fetchData()]);
             
             const startBtn = document.getElementById('start-app-btn');

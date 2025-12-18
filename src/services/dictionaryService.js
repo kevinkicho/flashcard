@@ -16,14 +16,20 @@ class DictionaryService {
             
             if (snapshot.exists()) {
                 const val = snapshot.val();
-                // If it's an object with keys "1", "2", ensure ID is part of the object
-                // If it's an array, the index/ID is usually embedded
                 const list = Array.isArray(val) ? val : Object.values(val);
 
                 list.forEach(item => {
                     if (!item) return;
-                    // Create entry preserving ID
-                    const entry = { ...item, ko: item.k };
+                    // Standardize keys from Firebase: s (simplified), t (traditional), p (pinyin), e (english), k (korean)
+                    const entry = { 
+                        id: item.id,
+                        s: item.s, 
+                        t: item.t, 
+                        p: item.p, 
+                        e: item.e, 
+                        ko: item.k 
+                    };
+                    
                     if (item.s) this.index[item.s] = entry;
                     if (item.t && item.t !== item.s) this.index[item.t] = entry;
                 });

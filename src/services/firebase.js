@@ -1,9 +1,11 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp } from 'firebase/app';
+import { getDatabase, ref, get, child } from 'firebase/database';
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCf-bliVUmDXtujsXhj35qAyXuYUDli_TM",
   authDomain: "polyglot121725.firebaseapp.com",
+  databaseURL: "https://polyglot121725-default-rtdb.firebaseio.com",
   projectId: "polyglot121725",
   storageBucket: "polyglot121725.firebasestorage.app",
   messagingSenderId: "847375215592",
@@ -12,6 +14,19 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
 
-// Export the app instance (useful if you add Database/Auth later)
-export { app };
+// [CRITICAL] Named Exports for other services
+export { 
+    app, 
+    db, 
+    auth, 
+    ref, 
+    get, 
+    child, 
+    signInAnonymously, 
+    signInWithPopup, 
+    googleProvider 
+};

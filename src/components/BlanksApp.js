@@ -10,31 +10,45 @@ export class BlanksApp {
     
     next(specificId = null) { 
         this.isAnswered = false; audioService.stop();
+        
+        // [FIX] Data Check
+        const allVocab = vocabService.getAll();
+        if (!allVocab || allVocab.length < 4) {
+            this.renderError("Not enough vocab data (Need 4+ items).");
+            return;
+        }
+
         if (specificId === null && this.currentData) {
              const idx = vocabService.findIndexById(this.currentData.target.id);
-             // Try to find next VALID blank question by iterating
              let found = false;
              let nextIdx = idx;
-             const list = vocabService.getAll();
-             for(let i=0; i<list.length; i++) {
-                 nextIdx = (nextIdx + 1) % list.length;
-                 const q = blanksService.generateQuestion(list[nextIdx].id);
+             for(let i=0; i<allVocab.length; i++) {
+                 nextIdx = (nextIdx + 1) % allVocab.length;
+                 const q = blanksService.generateQuestion(allVocab[nextIdx].id);
                  if (q) { this.currentData = q; found = true; break; }
              }
-             if(!found) this.currentData = blanksService.generateQuestion(); // Fallback random
+             if(!found) this.currentData = blanksService.generateQuestion(); 
         } else {
              this.currentData = blanksService.generateQuestion(specificId); 
         }
         
-        if(!this.currentData) { setTimeout(() => this.next(), 10); return; } 
+        if(!this.currentData) { 
+            this.renderError("Could not generate a sentence question (missing sentence data?)."); 
+            return; 
+        } 
         this.render(); 
+    }
+
+    renderError(msg) {
+        if(!this.container) return;
+        this.container.innerHTML = `<div class="flex flex-col items-center justify-center h-full p-8 text-center"><h2 class="text-xl font-bold text-red-400">Error</h2><p class="text-gray-500">${msg}</p><button id="blanks-back-btn" class="mt-4 px-4 py-2 bg-gray-200 rounded">Back</button></div>`;
+        document.getElementById('blanks-back-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
     }
 
     prev() { 
         audioService.stop();
         const list = vocabService.getAll();
-        // Simple prev not guaranteed for blanks, fall back to random for now or smart search
-        // Smart search backwards
+        if(!list || list.length === 0) return;
         let idx = vocabService.findIndexById(this.currentData.target.id);
         for(let i=0; i<list.length; i++) {
              idx = (idx - 1 + list.length) % list.length;
@@ -48,7 +62,6 @@ export class BlanksApp {
         if (full) {
             audioService.speak(this.currentData.cleanSentence, settings.targetLang);
         } else {
-            // Play with pause
             const parts = this.currentData.sentence.split('_______');
             if (parts.length > 1) {
                 audioService.speak(parts[0], settings.targetLang);
@@ -71,10 +84,10 @@ export class BlanksApp {
         this.isAnswered = true;
         const correctId = this.currentData.target.id;
         const isCorrect = selectedId === correctId;
-        const questionText = document.getElementById('blanks-question-text');
         const questionBox = document.getElementById('blanks-question-box');
-        const blankSlot = document.getElementById('blank-slot');
+        const questionText = document.getElementById('blanks-question-text');
         const blankText = document.getElementById('blank-text');
+        const blankSlot = document.getElementById('blank-slot');
 
         buttonElement.className = 'quiz-option relative w-full h-full p-2 rounded-2xl shadow-lg flex items-center justify-center transition-all border-2';
 
@@ -85,16 +98,14 @@ export class BlanksApp {
             questionText.classList.remove('text-gray-800', 'dark:text-white');
             questionText.classList.add('text-white');
 
-            // REVEAL ANSWER (Remove invisible class from the span inside blank-slot)
-            if(blankText) {
-                blankText.classList.remove('invisible');
-                blankSlot.classList.remove('border-b-4', 'border-dashed'); // Remove underline
-                blankSlot.classList.add('text-green-200', 'font-black'); // Highlight
+            if(blankText) blankText.classList.remove('invisible');
+            if(blankSlot) {
+                blankSlot.classList.remove('border-b-4', 'border-dashed');
+                blankSlot.classList.add('text-green-200', 'font-black');
             }
 
-            // PLAY AUDIO
             if (settings.blanksAutoPlayCorrect) {
-                const textToSpeak = settings.blanksAutoPlayCorrect ? this.currentData.cleanSentence : ""; 
+                const textToSpeak = this.currentData.cleanSentence; 
                 if (settings.gameWaitAudio && textToSpeak) {
                     audioService.speakWithCallback(textToSpeak, settings.targetLang, () => setTimeout(() => this.next(), 500));
                 } else {
@@ -114,19 +125,14 @@ export class BlanksApp {
 
     render() {
         if (!this.container || !this.currentData) return;
-        const { target, sentence, cleanSentence, answerWord, choices } = this.currentData;
+        const { target, sentence, answerWord, choices } = this.currentData;
         const settings = settingsService.get();
         const fontClass = settings.targetLang === 'ja' ? 'font-jp' : '';
         let gridClass = choices.length === 2 ? 'grid-cols-1 grid-rows-2' : choices.length === 3 ? 'grid-cols-1 grid-rows-3' : 'grid-cols-2 grid-rows-2';
 
-        // Split sentence for rendering: "Part A _______ Part B"
-        // We use the 'invisible text' trick to reserve exact space for the answer word.
         const parts = sentence.split('_______');
         const pre = parts[0] || '';
         const post = parts[1] || '';
-        
-        // The Blank Component: Holds the invisible answer word to set width, 
-        // with a border to show it's a blank.
         const blankHTML = `<span id="blank-slot" class="inline-block border-b-4 border-dashed border-indigo-400 min-w-[2em] text-center mx-1"><span id="blank-text" class="invisible">${answerWord}</span></span>`;
         const renderedSentence = pre + blankHTML + post;
 
@@ -141,7 +147,7 @@ export class BlanksApp {
                     <div class="flex-grow w-full flex items-center justify-center overflow-hidden px-4">
                         <p id="blanks-question-text" class="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white leading-relaxed text-center ${fontClass}" data-fit="true">${renderedSentence}</p>
                     </div>
-                    <p class="mt-4 text-gray-500 dark:text-gray-400 italic text-center w-full">${target.back.sentenceOrigin}</p>
+                    <p class="mt-4 text-gray-500 dark:text-gray-400 italic text-center w-full">${target.back?.sentenceOrigin || ''}</p>
                 </div>
                 <div class="w-full h-full grid ${gridClass} gap-3">
                     ${choices.map(choice => `<button class="quiz-option relative w-full h-full p-2 bg-white dark:bg-dark-card border-2 border-gray-100 dark:border-dark-border rounded-2xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all flex items-center justify-center group overflow-hidden" data-id="${choice.id}"><div class="text-xl font-black text-gray-800 dark:text-white leading-none text-center ${fontClass}" data-fit="true">${choice.front.main}</div></button>`).join('')}
@@ -156,11 +162,8 @@ export class BlanksApp {
         `;
 
         requestAnimationFrame(() => {
-            // Apply text fitting to question and choices
             const fitElements = this.container.querySelectorAll('[data-fit="true"]');
             fitElements.forEach(el => textService.fitText(el));
-            
-            // Smart wrapping for the sentence
             const qText = document.getElementById('blanks-question-text');
             if (qText) qText.innerHTML = textService.formatSentence(renderedSentence, settings.targetLang);
         });
@@ -168,7 +171,7 @@ export class BlanksApp {
         if(settings.autoPlay) setTimeout(() => this.playAudio(), 300);
 
         this.container.querySelectorAll('.quiz-option').forEach(btn => { btn.addEventListener('click', (e) => this.handleAnswer(parseInt(e.currentTarget.getAttribute('data-id')), e.currentTarget)); });
-        document.getElementById('blanks-question-box').addEventListener('click', () => this.playAudio(true)); // Click to play full
+        document.getElementById('blanks-question-box').addEventListener('click', () => this.playAudio(true)); 
         document.getElementById('blanks-random-btn').addEventListener('click', () => this.next(null));
         document.getElementById('blanks-close-btn').addEventListener('click', () => { audioService.stop(); window.dispatchEvent(new CustomEvent('router:home')); });
         document.getElementById('blanks-id-input').addEventListener('change', (e) => { const newId = parseInt(e.target.value); vocabService.findIndexById(newId) !== -1 ? this.next(newId) : alert('ID not found'); });

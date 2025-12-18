@@ -8,25 +8,38 @@ export class QuizApp {
     constructor() { this.container = null; this.currentData = null; this.isAnswered = false; this.selectedId = null; }
     mount(elementId) { this.container = document.getElementById(elementId); this.next(); }
 
-    // Navigation: ID +/- 1
     next(specificId = null) {
         this.isAnswered = false; this.selectedId = null; audioService.stop();
-        if (specificId === null && this.currentData) {
-            // Find next ID
-            const currentIdx = vocabService.findIndexById(this.currentData.target.id);
-            const list = vocabService.getAll();
-            const nextIdx = (currentIdx + 1) % list.length;
-            specificId = list[nextIdx].id;
+        
+        // Safety Check
+        const allVocab = vocabService.getAll();
+        if (!allVocab || allVocab.length < 4) {
+            this.renderError("Not enough vocabulary to generate a quiz (Need 4+ words).");
+            return;
         }
+
+        if (specificId === null && this.currentData && this.currentData.target) {
+            const currentIdx = vocabService.findIndexById(this.currentData.target.id);
+            const nextIdx = (currentIdx + 1) % allVocab.length;
+            specificId = allVocab[nextIdx].id;
+        }
+        
         this.currentData = quizService.generateQuestion(specificId);
+        
+        // [FIX] Freeze Prevention: If generation fails, show error, don't loop
+        if (!this.currentData) {
+            console.error("[QuizApp] Question Generation Failed");
+            this.renderError("Could not generate question. Check console for data issues.");
+            return;
+        }
         this.render();
     }
 
     prev() {
         this.isAnswered = false; this.selectedId = null; audioService.stop();
-        if (this.currentData) {
-            const currentIdx = vocabService.findIndexById(this.currentData.target.id);
+        if (this.currentData && this.currentData.target) {
             const list = vocabService.getAll();
+            const currentIdx = vocabService.findIndexById(this.currentData.target.id);
             const prevIdx = (currentIdx - 1 + list.length) % list.length;
             this.currentData = quizService.generateQuestion(list[prevIdx].id);
             this.render();
@@ -35,20 +48,21 @@ export class QuizApp {
 
     playQuestionAudio() {
         const settings = settingsService.get();
-        audioService.speak(this.currentData.target.front.main, settings.targetLang);
+        if (this.currentData && this.currentData.target) {
+            audioService.speak(this.currentData.target.front.main, settings.targetLang);
+        }
     }
 
     handleClick(id, buttonElement) {
         if (this.isAnswered) return;
         const settings = settingsService.get();
-        
         if (settings.quizClickMode === 'double') {
             if (this.selectedId !== id) {
                 this.selectedId = id;
                 this.container.querySelectorAll('.quiz-option').forEach(btn => btn.className = 'quiz-option relative w-full h-full p-2 bg-white dark:bg-dark-card border-2 border-gray-100 dark:border-dark-border rounded-2xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all flex items-center justify-center group overflow-hidden');
                 buttonElement.classList.remove('border-gray-100', 'dark:border-dark-border');
                 buttonElement.classList.add('ring-4', 'ring-indigo-300', 'border-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/20');
-                if (settings.quizAnswerAudio) { const choice = this.currentData.choices.find(c => c.id === id); audioService.speak(choice.back.definition, settings.originLang); }
+                if (settings.quizAnswerAudio) { const choice = this.currentData.choices.find(c => c.id === id); if(choice) audioService.speak(choice.back.definition, settings.originLang); }
                 return;
             }
         }
@@ -67,39 +81,51 @@ export class QuizApp {
 
         if (isCorrect) {
             buttonElement.classList.add('bg-green-500', 'text-white', 'border-green-600', 'animate-success-pulse');
-            questionBox.classList.remove('bg-white', 'dark:bg-dark-card', 'border-indigo-100', 'dark:border-dark-border');
-            questionBox.classList.add('bg-green-500', 'border-green-600', 'shadow-xl');
-            questionText.classList.remove('text-gray-800', 'dark:text-white');
-            questionText.classList.add('text-white');
+            if(questionBox) {
+                questionBox.classList.remove('bg-white', 'dark:bg-dark-card', 'border-indigo-100', 'dark:border-dark-border');
+                questionBox.classList.add('bg-green-500', 'border-green-600', 'shadow-xl');
+            }
+            if(questionText) {
+                questionText.classList.remove('text-gray-800', 'dark:text-white');
+                questionText.classList.add('text-white');
+            }
             this.container.querySelectorAll('.quiz-option').forEach(btn => btn.disabled = true);
 
-            // AUDIO LOGIC
             if (settings.quizAutoPlayCorrect) {
                 if (settings.gameWaitAudio) {
-                    // Wait for audio to end before advancing
-                    audioService.speakWithCallback(this.currentData.target.front.main, settings.targetLang, () => {
-                        setTimeout(() => this.next(), 500); // Short delay after audio
-                    });
+                    audioService.speakWithCallback(this.currentData.target.front.main, settings.targetLang, () => setTimeout(() => this.next(), 500));
                 } else {
-                    // Don't wait, just play and advance
                     audioService.speak(this.currentData.target.front.main, settings.targetLang);
                     setTimeout(() => this.next(), 1500);
                 }
             } else {
                 setTimeout(() => this.next(), 1000);
             }
-
         } else {
             buttonElement.classList.add('bg-red-500', 'text-white', 'border-red-600', 'animate-shake', 'opacity-50', 'cursor-not-allowed');
             this.selectedId = null; this.isAnswered = false; buttonElement.disabled = true;
         }
     }
 
+    renderError(msg) {
+        if(!this.container) return;
+        this.container.innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full p-8 text-center">
+                <h2 class="text-xl font-bold text-red-400">Game Error</h2>
+                <p class="text-gray-500 mt-2">${msg}</p>
+                <button id="quiz-back-btn" class="mt-6 px-6 py-3 bg-gray-200 dark:bg-gray-700 rounded-xl font-bold">Back to Menu</button>
+            </div>
+        `;
+        document.getElementById('quiz-back-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
+    }
+
     render() {
-        if (!this.container || !this.currentData) return;
+        if (!this.container) return;
         const settings = settingsService.get();
         const { target, choices } = this.currentData;
-        const fontClass = target.type === 'JAPANESE' ? 'font-jp' : '';
+        const mainText = target.front?.main || "???";
+        const subText = target.front?.sub || "";
+        const fontClass = settings.targetLang === 'ja' ? 'font-jp' : '';
         let gridClass = choices.length === 2 ? 'grid-cols-1 grid-rows-2' : choices.length === 3 ? 'grid-cols-1 grid-rows-3' : 'grid-cols-2 grid-rows-2';
 
         this.container.innerHTML = `
@@ -110,7 +136,7 @@ export class QuizApp {
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 grid-rows-[1fr_1fr] md:grid-rows-1 gap-4">
                 <div id="quiz-question-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl dark:shadow-none border-2 border-indigo-100 dark:border-dark-border p-6 flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 active:scale-[0.99]">
                     <span class="absolute top-6 w-full text-center text-[10px] font-black uppercase tracking-widest opacity-30 dark:text-gray-400">Select the meaning</span>
-                    <div class="flex-grow w-full flex items-center justify-center overflow-hidden"><span id="quiz-question-text" class="font-black text-gray-800 dark:text-white leading-none select-none opacity-0 transition-opacity duration-300 ${fontClass}" data-fit="true">${target.front.main}</span></div>${target.front.sub ? `<div class="mt-4 text-indigo-500 dark:text-dark-primary font-bold text-xl">${target.front.sub}</div>` : ''}
+                    <div class="flex-grow w-full flex items-center justify-center overflow-hidden"><span id="quiz-question-text" class="font-black text-gray-800 dark:text-white leading-none select-none opacity-0 transition-opacity duration-300 ${fontClass}" data-fit="true">${mainText}</span></div>${subText ? `<div class="mt-4 text-indigo-500 dark:text-dark-primary font-bold text-xl">${subText}</div>` : ''}
                 </div>
                 <div class="w-full h-full grid ${gridClass} gap-3">${choices.map(choice => `<button class="quiz-option relative w-full h-full p-2 bg-white dark:bg-dark-card border-2 border-gray-100 dark:border-dark-border rounded-2xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all flex items-center justify-center group overflow-hidden" data-id="${choice.id}"><div class="text-lg font-bold text-gray-700 dark:text-gray-200 leading-tight text-center opacity-0 transition-opacity duration-300 w-full px-2" data-fit="true">${choice.back.definition}</div></button>`).join('')}</div>
             </div>
@@ -122,7 +148,7 @@ export class QuizApp {
         if(settings.autoPlay) setTimeout(() => this.playQuestionAudio(), 300);
         this.container.querySelectorAll('.quiz-option').forEach(btn => { btn.addEventListener('click', (e) => this.handleClick(parseInt(e.currentTarget.getAttribute('data-id')), e.currentTarget)); });
         document.getElementById('quiz-question-box').addEventListener('click', () => this.playQuestionAudio());
-        document.getElementById('quiz-random-btn').addEventListener('click', () => { this.currentData = quizService.generateQuestion(); this.render(); });
+        document.getElementById('quiz-random-btn').addEventListener('click', () => { this.next(null); }); // [FIX] Call next(null) to regen random
         document.getElementById('quiz-close-btn').addEventListener('click', () => { audioService.stop(); window.dispatchEvent(new CustomEvent('router:home')); });
         document.getElementById('quiz-id-input').addEventListener('change', (e) => { const newId = parseInt(e.target.value); vocabService.findIndexById(newId) !== -1 ? this.next(newId) : alert('ID not found'); });
     }

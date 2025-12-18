@@ -6,12 +6,7 @@ import { vocabService } from '../services/vocabService';
 
 export class BlanksApp {
     constructor() { this.container = null; this.currentData = null; this.isAnswered = false; }
-    
-    mount(elementId) { 
-        this.container = document.getElementById(elementId); 
-        if (!this.currentData) this.random();
-        else this.render();
-    }
+    mount(elementId) { this.container = document.getElementById(elementId); if(!this.currentData) this.random(); else this.render(); }
 
     bind(selector, event, handler) {
         if (!this.container) return;
@@ -22,8 +17,8 @@ export class BlanksApp {
     random() { 
         const list = vocabService.getAll();
         if(!list || list.length < 4) { this.renderError(); return; }
-        this.isAnswered = false; audioService.stop();
-        this.currentData = blanksService.generateQuestion(null);
+        this.isAnswered = false; audioService.stop(); 
+        this.currentData = blanksService.generateQuestion(null); 
         this.render(); 
     }
 
@@ -32,11 +27,11 @@ export class BlanksApp {
         if(id) {
             this.currentData = blanksService.generateQuestion(id);
         } else {
-            const list = vocabService.getAll(); 
-            if(!list || list.length < 4) { this.renderError(); return; }
+            const l = vocabService.getAll();
+            if(!l || l.length < 4) { this.renderError(); return; }
             if (this.currentData && this.currentData.target) {
                 const idx = vocabService.findIndexById(this.currentData.target.id);
-                this.currentData = blanksService.generateQuestion(list[(idx + 1) % list.length].id);
+                this.currentData = blanksService.generateQuestion(l[(idx + 1) % l.length].id);
             } else {
                 this.currentData = blanksService.generateQuestion(null);
             }
@@ -44,50 +39,31 @@ export class BlanksApp {
         if(this.currentData && window.saveGameHistory) window.saveGameHistory('blanks', this.currentData.target.id);
         this.render();
     }
+    
+    prev() { const l=vocabService.getAll(); const i=vocabService.findIndexById(this.currentData.target.id); this.next(l[(i-1+l.length)%l.length].id); }
 
-    prev() { 
-        const list = vocabService.getAll();
-        if(!list || list.length === 0) return;
-        if(this.currentData && this.currentData.target) {
-            const idx = vocabService.findIndexById(this.currentData.target.id);
-            this.next(list[(idx - 1 + list.length) % list.length].id);
-        }
-    }
+    renderError() { if(this.container) this.container.innerHTML="<div class='p-10 text-white pt-24 text-center'>Not enough data.</div>"; }
 
-    renderError() { 
-        if(this.container) {
-            this.container.innerHTML = `
-                <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm"><div></div><button id="blanks-close-err" class="w-10 h-10 bg-red-50 text-red-500 rounded-full flex items-center justify-center shadow-sm"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
-                <div class="p-10 text-center text-gray-500 dark:text-gray-400 pt-24">Not enough data.</div>
-            `;
-            this.bind('#blanks-close-err', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
+    handleAnswer(id, el) { 
+        if(this.isAnswered) return;
+        this.isAnswered = true; const correct = this.currentData.target.id === id;
+        el.className = `quiz-option relative w-full h-full p-2 rounded-2xl shadow-lg flex items-center justify-center transition-all border-2 ${correct?'bg-green-500 border-green-600 text-white':'bg-red-500 border-red-600 text-white'}`;
+        if(correct) {
+            const slot = this.container.querySelector('#blank-slot'); if(slot) slot.classList.replace('bg-gray-200', 'text-green-600');
+            const text = this.container.querySelector('#blank-text'); if(text) text.classList.remove('invisible');
+            if(settingsService.get().blanksAutoPlayCorrect) this.playAudio(true);
+            setTimeout(() => this.next(), 1000);
         }
     }
 
     playAudio(full = false) { 
         if (!this.currentData) return;
         const settings = settingsService.get();
-        if (full) {
-             audioService.speak(this.currentData.cleanSentence, settings.targetLang);
-        } else {
+        if (full) audioService.speak(this.currentData.cleanSentence, settings.targetLang);
+        else {
             const parts = this.currentData.sentence.split('_______');
             if (parts.length > 1) audioService.speakGapSentence(parts[0], parts[1], settings.targetLang);
             else audioService.speak(this.currentData.sentence, settings.targetLang);
-        }
-    }
-
-    handleAnswer(id, el) { 
-        if (this.isAnswered) return;
-        this.isAnswered = true; 
-        const correct = this.currentData.target.id === id;
-        el.className = `quiz-option relative w-full h-full p-2 rounded-2xl shadow-lg flex items-center justify-center transition-all border-2 ${correct ? 'bg-green-500 border-green-600 text-white' : 'bg-red-500 border-red-600 text-white'}`;
-        if (correct) {
-            const slot = this.container.querySelector('#blank-slot'); if(slot) slot.classList.replace('bg-gray-200', 'text-green-600');
-            const text = this.container.querySelector('#blank-text'); if(text) text.classList.remove('invisible');
-            
-            const settings = settingsService.get();
-            if (settings.blanksAutoPlayCorrect) this.playAudio(true);
-            setTimeout(() => this.next(), 1000);
         }
     }
 
@@ -126,7 +102,9 @@ export class BlanksApp {
         this.bind('#blanks-question-box', 'click', () => this.playAudio(true));
         this.bind('#blanks-id-input', 'change', (e) => this.next(parseInt(e.target.value)));
 
-        this.container.querySelectorAll('.quiz-option').forEach(btn => btn.addEventListener('click', (e) => this.handleAnswer(parseInt(e.currentTarget.dataset.id), e.currentTarget)));
+        this.container.querySelectorAll('.quiz-option').forEach(btn => {
+            btn.addEventListener('click', (e) => this.handleAnswer(parseInt(e.currentTarget.dataset.id), e.currentTarget));
+        });
         
         requestAnimationFrame(() => {
             const fitElements = this.container.querySelectorAll('[data-fit="true"]');

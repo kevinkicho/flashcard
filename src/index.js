@@ -10,8 +10,15 @@ import { sentencesApp } from './components/SentencesApp';
 import { blanksApp } from './components/BlanksApp';
 import { audioService } from './services/audioService';
 
-// --- PERSISTENCE ---
-const savedHistory = JSON.parse(localStorage.getItem('polyglot_history') || '{}');
+// --- PERSISTENCE (Safe Load) ---
+let savedHistory = {};
+try {
+    savedHistory = JSON.parse(localStorage.getItem('polyglot_history') || '{}');
+} catch (e) {
+    console.error("History load error, resetting.", e);
+    savedHistory = {};
+}
+
 window.saveGameHistory = (game, id) => {
     if (!id) return;
     savedHistory[game] = id;
@@ -20,7 +27,7 @@ window.saveGameHistory = (game, id) => {
 
 document.addEventListener('DOMContentLoaded', () => {
     
-    // --- UI ELEMENTS ---
+    // --- UI REFS ---
     const views = { 
         home: document.getElementById('main-menu'), 
         flashcard: document.getElementById('flashcard-view'), 
@@ -33,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const iconIn = document.getElementById('icon-user-in');
     let currentUser = null;
 
-    // --- AUTH LOGIC ---
+    // --- AUTH ---
     onAuthStateChanged(auth, (user) => {
         currentUser = user;
         if (user && !user.isAnonymous) {
@@ -74,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target) {
             target.classList.remove('hidden');
             const lastId = savedHistory[viewName];
+            
             if (viewName === 'flashcard') { flashcardApp.mount('flashcard-view'); if(lastId) flashcardApp.goto(lastId); }
             if (viewName === 'quiz') { quizApp.mount('quiz-view'); if(lastId) quizApp.next(lastId); }
             if (viewName === 'sentences') { sentencesApp.mount('sentences-view'); if(lastId) sentencesApp.next(lastId); }
@@ -108,6 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `).join('');
             popup.classList.remove('hidden');
             setTimeout(() => popup.classList.remove('opacity-0'), 10);
+            
+            // NO AUTO PLAY AUDIO HERE
         }
     }
     if(popupClose) popupClose.addEventListener('click', () => { popup.classList.add('opacity-0'); setTimeout(() => popup.classList.add('hidden'), 200); });
@@ -143,15 +153,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function switchEditTab(tab) {
         if (tab === 'vocab') {
-            if(tabVocab) tabVocab.classList.remove('hidden'); 
-            if(tabDict) tabDict.classList.add('hidden');
-            if(tabVocabBtn) { tabVocabBtn.classList.replace('bg-gray-200', 'bg-indigo-600'); tabVocabBtn.classList.replace('text-gray-600', 'text-white'); }
-            if(tabDictBtn) { tabDictBtn.classList.replace('bg-indigo-600', 'bg-gray-200'); tabDictBtn.classList.replace('text-white', 'text-gray-600'); }
+            tabVocab.classList.remove('hidden'); tabDict.classList.add('hidden');
+            tabVocabBtn.classList.replace('bg-gray-200', 'bg-indigo-600'); tabVocabBtn.classList.replace('text-gray-600', 'text-white');
+            tabDictBtn.classList.replace('bg-indigo-600', 'bg-gray-200'); tabDictBtn.classList.replace('text-white', 'text-gray-600');
         } else {
-            if(tabVocab) tabVocab.classList.add('hidden'); 
-            if(tabDict) tabDict.classList.remove('hidden');
-            if(tabDictBtn) { tabDictBtn.classList.replace('bg-gray-200', 'bg-indigo-600'); tabDictBtn.classList.replace('text-gray-600', 'text-white'); }
-            if(tabVocabBtn) { tabVocabBtn.classList.replace('bg-indigo-600', 'bg-gray-200'); tabVocabBtn.classList.replace('text-white', 'text-gray-600'); }
+            tabVocab.classList.add('hidden'); tabDict.classList.remove('hidden');
+            tabDictBtn.classList.replace('bg-gray-200', 'bg-indigo-600'); tabDictBtn.classList.replace('text-gray-600', 'text-white');
+            tabVocabBtn.classList.replace('bg-indigo-600', 'bg-gray-200'); tabVocabBtn.classList.replace('text-white', 'text-gray-600');
         }
     }
     if(tabVocabBtn) tabVocabBtn.addEventListener('click', () => switchEditTab('vocab'));
@@ -222,12 +230,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     switchEditTab('vocab');
                     
                     document.getElementById('edit-vocab-id').textContent = `ID: ${item.id}`;
-                    document.getElementById('inp-vocab-target').value = item.front.main;
-                    document.getElementById('inp-vocab-origin').value = item.back.definition;
+                    document.getElementById('inp-vocab-target').value = item.front.main || '';
+                    document.getElementById('inp-vocab-origin').value = item.back.definition || '';
                     document.getElementById('inp-vocab-sentence-t').value = item.back.sentenceTarget || '';
                     document.getElementById('inp-vocab-sentence-o').value = item.back.sentenceOrigin || '';
                     
-                    // Combine text from EVERYTHING
+                    // GATHER ALL TEXT FOR DICTIONARY
                     let combinedText = (item.front.main||"") + (item.back.sentenceTarget||"") + (item.front.sub||"") + (item.back.definition||"");
                     if (app.currentData && app.currentData.choices) {
                         app.currentData.choices.forEach(c => combinedText += (c.front.main||"") + (c.back.definition||""));
@@ -253,59 +261,24 @@ document.addEventListener('DOMContentLoaded', () => {
             updates[`${settings.originLang}_ex`] = document.getElementById('inp-vocab-sentence-o').value;
             try {
                 await update(ref(db, `vocab/${currentEditId}`), updates);
-                alert('Saved!');
+                alert('Vocab Saved!');
                 await vocabService.fetchData();
                 if (!views.flashcard.classList.contains('hidden')) flashcardApp.refresh();
             } catch(e) { console.error(e); alert('Error'); }
         });
     }
 
-    // --- SETTINGS (FIXED: Save + Update UI) ---
+    // --- SETTINGS (UI Updates) ---
     const settingsModal = document.getElementById('settings-modal');
     const openSettings = () => { 
-        loadSettingsToUI(); // RELOAD STATE ON OPEN
+        loadSettingsToUI(); 
         settingsModal.classList.remove('hidden'); 
         setTimeout(()=>settingsModal.classList.remove('opacity-0'), 10); 
     };
     const closeSettings = () => { settingsModal.classList.add('opacity-0'); setTimeout(()=>settingsModal.classList.add('hidden'), 200); };
-    
-    document.getElementById('settings-open-btn').addEventListener('click', openSettings);
-    document.getElementById('modal-done-btn').addEventListener('click', closeSettings);
+    if(document.getElementById('settings-open-btn')) document.getElementById('settings-open-btn').addEventListener('click', openSettings);
+    if(document.getElementById('modal-done-btn')) document.getElementById('modal-done-btn').addEventListener('click', closeSettings);
     document.addEventListener('click', (e) => { if(e.target.closest('.game-settings-btn')) openSettings(); });
-
-    // Helper to bind toggle to service save
-    function bindSetting(id, key, callback) {
-        const el = document.getElementById(id);
-        if(!el) return;
-        el.addEventListener('change', (e) => {
-            settingsService.set(key, e.target.type === 'checkbox' ? e.target.checked : e.target.value);
-            if(callback) callback();
-        });
-    }
-
-    function updateAllApps() {
-        if(!views.flashcard.classList.contains('hidden')) flashcardApp.refresh();
-        if(!views.quiz.classList.contains('hidden')) quizApp.render();
-    }
-
-    // Apply bindings
-    bindSetting('target-select', 'targetLang', updateAllApps);
-    bindSetting('origin-select', 'originLang', updateAllApps);
-    bindSetting('toggle-dark', 'darkMode', () => document.documentElement.classList.toggle('dark'));
-    bindSetting('toggle-audio', 'autoPlay');
-    
-    bindSetting('toggle-vocab', 'showVocab', updateAllApps);
-    bindSetting('toggle-sentence', 'showSentence', updateAllApps);
-    bindSetting('toggle-english', 'showEnglish', updateAllApps);
-    
-    bindSetting('toggle-dict-enable', 'dictEnabled');
-    bindSetting('toggle-dict-audio', 'dictAudio');
-    
-    bindSetting('toggle-quiz-audio', 'quizAnswerAudio');
-    bindSetting('toggle-quiz-autoplay-correct', 'quizAutoPlayCorrect');
-    
-    bindSetting('toggle-sent-audio', 'sentencesWordAudio');
-    bindSetting('toggle-blanks-audio', 'blanksAnswerAudio');
 
     function loadSettingsToUI() {
         const s = settingsService.get();
@@ -316,16 +289,46 @@ document.addEventListener('DOMContentLoaded', () => {
         setVal('origin-select', s.originLang);
         setChk('toggle-dark', s.darkMode);
         setChk('toggle-audio', s.autoPlay);
+        
         setChk('toggle-vocab', s.showVocab);
         setChk('toggle-sentence', s.showSentence);
         setChk('toggle-english', s.showEnglish);
+        
         setChk('toggle-dict-enable', s.dictEnabled);
         setChk('toggle-dict-audio', s.dictAudio);
+        
         setChk('toggle-quiz-audio', s.quizAnswerAudio);
         setChk('toggle-quiz-autoplay-correct', s.quizAutoPlayCorrect);
+        
         setChk('toggle-sent-audio', s.sentencesWordAudio);
         setChk('toggle-blanks-audio', s.blanksAnswerAudio);
     }
+
+    function bindSetting(id, key, callback) {
+        const el = document.getElementById(id);
+        if(!el) return;
+        el.addEventListener('change', (e) => {
+            settingsService.set(key, e.target.type === 'checkbox' ? e.target.checked : e.target.value);
+            if(callback) callback();
+        });
+    }
+
+    function updateAllApps() { if(!views.flashcard.classList.contains('hidden')) flashcardApp.refresh(); }
+    
+    // Bind all inputs
+    bindSetting('target-select', 'targetLang', updateAllApps);
+    bindSetting('origin-select', 'originLang', updateAllApps);
+    bindSetting('toggle-dark', 'darkMode', () => document.documentElement.classList.toggle('dark'));
+    bindSetting('toggle-audio', 'autoPlay');
+    bindSetting('toggle-vocab', 'showVocab', updateAllApps);
+    bindSetting('toggle-sentence', 'showSentence', updateAllApps);
+    bindSetting('toggle-english', 'showEnglish', updateAllApps);
+    bindSetting('toggle-dict-enable', 'dictEnabled');
+    bindSetting('toggle-dict-audio', 'dictAudio');
+    bindSetting('toggle-quiz-audio', 'quizAnswerAudio');
+    bindSetting('toggle-quiz-autoplay-correct', 'quizAutoPlayCorrect');
+    bindSetting('toggle-sent-audio', 'sentencesWordAudio');
+    bindSetting('toggle-blanks-audio', 'blanksAnswerAudio');
 
     const accordions = [
         { btn: 'dict-accordion-btn', content: 'dict-options', arrow: 'accordion-arrow-dict' },

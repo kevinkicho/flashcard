@@ -1,6 +1,6 @@
 # Polyglot Flashcards
 
-**Polyglot Flashcards** is a sophisticated, web-based language learning application focused on Japanese, Chinese, and other languages. It goes beyond simple flashcards by offering four distinct game modes, a highly customizable audio engine, and an advanced Japanese text tokenizer that understands grammar rules to create meaningful sentence chunks.
+**Polyglot.AI** is a comprehensive, web-based language learning application designed to help users master vocabulary through various interactive game modes. It supports multiple languages (Japanese, Korean, Chinese, and English) and utilizes Firebase for real-time data management and authentication. The app features integrated text-to-speech audio, a built-in dictionary lookup for characters, and customizable settings.
 
 ---
 
@@ -8,41 +8,39 @@
 
 | File Name | Description |
 | :--- | :--- |
-| **`src/index.html`** | The main entry point. Contains the responsive shell, the four game views (`#flashcard-view`, `#quiz-view`, `#sentences-view`, `#blanks-view`), the Settings Modal, and the "Red Box" Error Console for mobile debugging. |
-| **`src/index.js`** | The central controller. Handles routing between games, initializes the app, manages global UI state (Dark Mode, Fonts), and binds navigation events. |
-| **`src/services/textService.js`** | **Core Logic Engine**. Contains the `tokenizeJapanese` algorithm which uses `Intl.Segmenter` combined with a multi-phase post-processor to merge particles, suffixes, and punctuation into logical blocks. Also handles `fitText` resizing. |
-| **`src/services/audioService.js`** | A robust wrapper for the Web Speech API. Supports "Wait for Audio" (callbacks), auto-play logic, and smart string parsing (e.g., ignoring special separators like `・` or `[]` in Japanese vocab). |
-| **`src/services/settingsService.js`** | Manages persistence of user preferences (Language targets, Audio toggles, Game specific options) to `localStorage`. |
-| **`src/services/vocabService.js`** | Manages the vocabulary dataset, providing random fetchers and ID-based lookups. |
-| **`src/services/blanksService.js`** | Generates "Fill in the Blank" questions by dynamically finding vocabulary words (or their conjugated stems) within example sentences and replacing them with underscores. |
-| **`src/components/FlashcardApp.js`** | The classic study mode with 3D card flipping, auto-play audio, and random navigation. |
-| **`src/components/QuizApp.js`** | A 2-4 choice vocabulary drill. Features a responsive Grid layout (Split view on Tablet) and visual/audio feedback for correct/incorrect answers. |
-| **`src/components/SentencesApp.js`** | A sentence reconstruction game. Uses the `textService` to scramble sentences into logical chunks (not just characters) and features a "Sparkles" toggle to compare raw vs. smart processing. |
-| **`src/components/BlanksApp.js`** | A context-based game where users identify the missing word in a sentence. Features a "non-wobbly" UI using invisible text overlays to maintain layout stability during answer reveals. |
+| **`src/index.html`** | The main entry point containing the app's HTML structure, including the global header, main menu, game containers, and modals (Settings, Dictionary, Edit). |
+| **`src/index.js`** | The central controller that initializes the app, manages routing between views, handles authentication state, and orchestrates global events like dictionary lookups. |
+| **`src/services/firebase.js`** | Configuration and initialization for Firebase Authentication (Google/Anonymous) and Realtime Database connections. |
+| **`src/services/vocabService.js`** | Fetches vocabulary data from Firebase, standardizes the format, and provides methods to retrieve or filter items for games. |
+| **`src/services/dictionaryService.js`** | Manages the dictionary data (Hanzi/Kanji), providing lookup functionality to find character details within any text. |
+| **`src/services/settingsService.js`** | Manages application state and user preferences (e.g., target language, dark mode, audio settings), persisting them to `localStorage`. |
+| **`src/services/audioService.js`** | Handles the browser's Text-to-Speech (TTS) API to generate audio for target language words and sentences. |
+| **`src/components/FlashcardApp.js`** | Logic for the **Flashcard** mode, handling card flipping, navigation, and display customization. |
+| **`src/components/QuizApp.js`** | Logic for the **Quiz** mode, generating 4-choice questions and validating user answers. |
+| **`src/components/SentencesApp.js`** | Logic for the **Sentences** mode, where users reconstruct sentences by selecting scrambled words in the correct order. |
+| **`src/components/BlanksApp.js`** | Logic for the **Blanks** mode, challenging users to fill in the missing word in a given sentence context. |
 
 ---
 
-## Key Features & Mechanics
+## Key Features
 
-### 1. Advanced Japanese Tokenizer (`textService.js`)
-* **Standard Splitting**: Uses the browser's native `Intl.Segmenter` to split Japanese text into dictionary words.
-* **Grammar Post-Processing**: A custom rule engine iterates through the segments to merge them into natural speaking chunks:
-    * **Phonetic Glue**: Merges small kana (`っ`, `ゃ`, `ゅ`, `ょ`, `ん`) to the preceding sound.
-    * **Suffixes & Particles**: Aggressively merges 50+ grammatical suffixes (`-ます`, `-した`, `-さん`, `-たい`, `-ね`, `-から`) to their root words.
-    * **Punctuation**: Merges `。` and `、` to the preceding block at the very end of processing.
-* **Vocab Consistency**: Ensures the target vocabulary word *never* gets chopped. If the target word (e.g., "言い訳") appears in the sentence, the tokenizer forces a merge of any split blocks (e.g., "言い" + "訳") to preserve the answer key.
+### 1. Interactive Game Modes
+* **Flashcards**: Classic study tool with 3D flip animations to reveal meanings and example sentences.
+* **Quiz**: A rapid-fire multiple-choice game to test vocabulary recognition.
+* **Sentences**: Context-based learning where users build sentences from a bank of shuffled words.
+* **Blanks**: A "fill-in-the-blank" exercise to test understanding of grammar and vocabulary usage.
 
-### 2. Game Modes
-* **Flashcards**: Standard study with "Smart Fit" text resizing and auto-play audio.
-* **Quiz**: Configurable (2-4 choices). On tablets, uses a split-screen layout (Question Left / Answers Right) to maximize screen real estate.
-* **Sentences**: Users build sentences from a word bank. Supports "Post-Processing Toggle" to visualize how the tokenizer groups words differently.
-* **Blanks**: Context learning. Audio engine pauses intelligently where the blank is ("Kare wa ...[pause]... mashita") for a realistic listening test.
+### 2. Dictionary & Editing
+* **Instant Lookup**: Long-press on any text (Flashcards, Questions, etc.) to open a dictionary modal showing Pinyin, English, and Korean definitions for Chinese characters.
+* **Admin Editing**: Authenticated admins can edit vocabulary and dictionary entries directly within the app interface using the "Edit" (pencil) button.
+* **Smart Scoping**: The edit modal automatically gathers all relevant text from the current view to populate the dictionary editor.
 
 ### 3. Audio Engine
-* **Wait Mode**: Optional setting to force the app to wait until the current audio track finishes before loading the next question.
-* **Smart Parsing**: Automatically strips reading aids (like `・` in `言い訳・言分け`) so the TTS engine pronounces words naturally.
-* **Feedback Audio**: Distinct audio behaviors for clicking answer choices versus confirming the correct answer (reading the full sentence).
+* **Text-to-Speech**: Integrated audio support for Japanese, Chinese, Korean, and English.
+* **Auto-Play**: Configurable settings to automatically play audio when a card loads or an answer is correct.
+* **Targeted Playback**: Ability to play audio for full sentences or specific gap-fill words.
 
-### 4. Developer Tools
-* **Mobile Debugging**: Includes a built-in "Red Box" Error Console that intercepts JavaScript errors on mobile devices (where DevTools are unavailable) and provides a "Copy to Clipboard" button for easy reporting.
-* **Responsive Design**: Tailored layouts for Portrait (Mobile) vs. Landscape/Split (Tablet) orientations across all game modes.
+### 4. Customization & Persistence
+* **Settings System**: Users can toggle Dark Mode, choose target/origin languages, and adjust game-specific options (e.g., toggling English translations or reading aids).
+* **State Tracking**: The app remembers the last card or question visited in each game mode, allowing users to pick up exactly where they left off.
+* **Navigation**: ID input fields allow users to jump to specific vocabulary IDs instantly.

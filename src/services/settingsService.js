@@ -29,8 +29,15 @@ class SettingsService {
     }
 
     load() {
-        const saved = localStorage.getItem('polyglot_settings');
-        return saved ? { ...defaultSettings, ...JSON.parse(saved) } : { ...defaultSettings };
+        try {
+            const saved = localStorage.getItem('polyglot_settings');
+            if (saved) {
+                return { ...defaultSettings, ...JSON.parse(saved) };
+            }
+        } catch (e) {
+            console.error("Error loading settings:", e);
+        }
+        return { ...defaultSettings };
     }
 
     get() {
@@ -46,7 +53,11 @@ class SettingsService {
     setOrigin(lang) { this.set('originLang', lang); }
 
     save() {
-        localStorage.setItem('polyglot_settings', JSON.stringify(this.settings));
+        try {
+            localStorage.setItem('polyglot_settings', JSON.stringify(this.settings));
+        } catch (e) {
+            console.error("Error saving settings:", e);
+        }
     }
 }
 

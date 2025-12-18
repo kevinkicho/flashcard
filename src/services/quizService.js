@@ -1,45 +1,38 @@
 import { vocabService } from './vocabService';
 import { settingsService } from './settingsService';
 
-class QuizService {
+export const quizService = {
     generateQuestion(specificId = null) {
-        const fullList = vocabService.getFlashcardData();
-        const settings = settingsService.get();
-        const numChoices = parseInt(settings.quizChoices) || 4;
+        const allVocab = vocabService.getAll();
+        // [FIX] Handle empty or small lists
+        if (!allVocab || allVocab.length < 2) return null;
 
-        // 1. Select Correct Answer
-        let correctIndex;
-        if (specificId !== null) {
-            correctIndex = vocabService.findIndexById(specificId);
-        } else {
-            correctIndex = vocabService.getRandomIndex();
-        }
+        let target = null;
+        if (specificId) {
+            target = allVocab.find(i => i.id === specificId);
+        } 
         
-        const correctItem = fullList[correctIndex];
+        // Fallback or random
+        if (!target) {
+            target = allVocab[Math.floor(Math.random() * allVocab.length)];
+        }
 
-        // 2. Select Distractors
-        const choices = [correctItem];
-        const usedIndices = new Set([correctIndex]);
-
-        while (choices.length < numChoices) {
-            const randIndex = vocabService.getRandomIndex();
-            if (!usedIndices.has(randIndex)) {
-                choices.push(fullList[randIndex]);
-                usedIndices.add(randIndex);
+        const numChoices = parseInt(settingsService.get().quizChoices) || 4;
+        const choices = [target];
+        
+        // [FIX] Prevent infinite loop
+        let attempts = 0;
+        while (choices.length < numChoices && attempts < 50) {
+            attempts++;
+            const random = allVocab[Math.floor(Math.random() * allVocab.length)];
+            if (!choices.find(c => c.id === random.id)) {
+                choices.push(random);
             }
         }
 
-        // 3. Shuffle Choices
-        for (let i = choices.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [choices[i], choices[j]] = [choices[j], choices[i]];
-        }
-
         return {
-            target: correctItem, // The correct object
-            choices: choices     // Mixed array
+            target,
+            choices: choices.sort(() => Math.random() - 0.5)
         };
     }
-}
-
-export const quizService = new QuizService();
+};

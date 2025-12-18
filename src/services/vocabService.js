@@ -1,75 +1,55 @@
-import dbData from '../data/export_rtdb_121725.json';
-import { settingsService } from './settingsService';
+import { db, ref, get, child } from './firebase';
 
 class VocabService {
     constructor() {
-        this.vocabList = dbData.vocab || [];
+        this.list = [];
+        this.isInitialized = false;
     }
 
-    getAll() {
-        return this.vocabList;
+    async fetchData() {
+        if (this.isInitialized) return;
+        
+        try {
+            console.log("Fetching Vocab...");
+            const dbRef = ref(db);
+            const snapshot = await get(child(dbRef, 'vocab'));
+            
+            if (snapshot.exists()) {
+                const val = snapshot.val();
+                let rawList = Array.isArray(val) ? val : Object.values(val);
+                
+                // [CRITICAL FIX] Strict filtering to prevent 'undefined' crashes later
+                this.list = rawList.filter(item => 
+                    item && 
+                    typeof item === 'object' &&
+                    item.id !== undefined &&
+                    item.front && (item.front.main || item.front.expression) &&
+                    item.back && (item.back.definition || item.back.meaning)
+                );
+
+                this.isInitialized = true;
+                console.log(`Vocab loaded: ${this.list.length} valid entries.`);
+            } else {
+                console.warn("No vocab data found in Firebase.");
+                this.list = [];
+            }
+        } catch (error) {
+            console.error("Vocab fetch failed:", error);
+            this.list = [];
+        }
+    }
+
+    getAll() { return this.list || []; }
+    getFlashcardData() { return this.list || []; }
+    
+    getRandomIndex() { 
+        if (this.list.length === 0) return 0;
+        return Math.floor(Math.random() * this.list.length); 
     }
     
-    // Find array index by Vocab ID (e.g. ID 250 -> Index 249)
-    findIndexById(id) {
-        // Loose equality (==) allows string '250' to match number 250
-        return this.vocabList.findIndex(item => item.id == id);
-    }
-
-    // Get a random index from the list
-    getRandomIndex() {
-        return Math.floor(Math.random() * this.vocabList.length);
-    }
-
-    getFlashcardData() {
-        const { targetLang, originLang } = settingsService.get();
-        
-        return this.vocabList.map(item => {
-            // FRONT CARD LOGIC
-            const mainText = item[targetLang] || '...';
-            let subText = '', extraText = '';
-
-            // Handle specific language features
-            if (targetLang === 'ja') {
-                extraText = item.ja_furi || ''; 
-                subText = item.ja_roma || '';
-            } else if (['zh', 'ko', 'ru'].includes(targetLang)) {
-                if(targetLang === 'zh') subText = item.zh_pin || '';
-                if(targetLang === 'ko') subText = item.ko_roma || '';
-                if(targetLang === 'ru') subText = item.ru_tr || '';
-            }
-            
-            // Determine visual type
-            const type = (targetLang === 'ja') ? 'JAPANESE' : 
-                         (['zh', 'ko', 'ru'].includes(targetLang)) ? 'NON_LATIN' : 'WESTERN';
-
-            // BACK CARD LOGIC
-            // Definition in origin language, fallback to English
-            const definition = item[originLang] || item['en'] || 'Definition unavailable';
-            const sentenceTarget = item[targetLang + '_ex'] || '';
-            const sentenceOrigin = item[originLang + '_ex'] || '';
-
-            // ENGLISH EXTRAS (For "Show English" feature)
-            const englishDef = item['en'] || '';
-            const englishSent = item['en_ex'] || '';
-
-            return {
-                id: item.id,
-                type: type,
-                front: { 
-                    main: mainText, 
-                    sub: subText, 
-                    extra: extraText 
-                },
-                back: { 
-                    definition: definition, 
-                    sentenceTarget: sentenceTarget, 
-                    sentenceOrigin: sentenceOrigin,
-                    englishDef: englishDef,
-                    englishSent: englishSent
-                }
-            };
-        });
+    findIndexById(id) { 
+        if (!this.list) return -1;
+        return this.list.findIndex(item => item.id === id); 
     }
 }
 

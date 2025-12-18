@@ -2,30 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-// ... (Existing styles) ...
+/* CUSTOM FONTS */
+.font-jp { font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
+.font-inter { font-family: 'Inter', sans-serif; }
+.font-lato { font-family: 'Lato', sans-serif; }
+.font-roboto { font-family: 'Roboto', sans-serif; }
 
-/* DICTIONARY POPUP */
-#dictionary-popup {
-    transition: opacity 0.2s ease-in-out, transform 0.2s ease-out;
-    opacity: 0;
-    pointer-events: none;
-    transform: translate(-50%, -40%) scale(0.95); // Start slightly offset
+/* LOADING STATE: Hides everything except splash screen */
+body.is-loading {
+    overflow: hidden;
     
-    &.active {
-        opacity: 1;
-        pointer-events: auto;
-        transform: translate(-50%, -50%) scale(1);
+    /* Hide specific UI elements while loading */
+    header, 
+    #main-menu,
+    .app-view {
+        display: none !important;
     }
 }
 
-.dict-char {
-    position: relative;
-    /* Optional: Add a subtle underline to show it's interactable */
-    /* border-bottom: 1px dotted rgba(156, 163, 175, 0.5); */ 
-}
+/* Custom Scrollbar for Dictionary */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 20px; }
 
-.dict-char:active {
-    color: #4f46e5; /* Indigo-600 */
-    background-color: rgba(79, 70, 229, 0.1);
-    border-radius: 4px;
-}
+/* Utility */
+.flashcard-content { perspective: 1000px; }

@@ -8,6 +8,8 @@
     <style> 
         body { margin: 0; overflow: hidden; background: #111; }
         body.is-loading #splash-screen { opacity: 1; pointer-events: auto; }
+        body.game-mode #menu-header { display: none !important; }
+        
         #error-console { 
             display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
             background: rgba(30, 0, 0, 0.95); color: #ff5555; 
@@ -16,36 +18,29 @@
         }
         #error-text { white-space: pre-wrap; overflow: auto; flex-grow: 1; border: 1px solid #500; padding: 10px; margin-top: 10px; background: #000; }
         .debug-btn { background: #444; color: white; border: 1px solid #666; padding: 8px 16px; margin-right: 10px; cursor: pointer; }
-        #dictionary-popup { 
-            visibility: hidden; opacity: 0; transition: opacity 0.2s, transform 0.2s, visibility 0.2s; 
-            transform: translate(-50%, -40%) scale(0.95); pointer-events: none;
-        }
-        #dictionary-popup.active { 
-            visibility: visible; opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; 
-        }
+        
+        /* Accordion transition */
+        .settings-content { transition: max-height 0.3s ease-out; max-height: 0; overflow: hidden; }
+        .settings-content.open { max-height: 500px; }
+        .arrow { transition: transform 0.3s; }
+        .arrow.rotate { transform: rotate(180deg); }
+        
+        /* Dictionary Popup */
+        #dictionary-popup { transition: opacity 0.2s, transform 0.2s; pointer-events: none; }
+        #dictionary-popup:not(.hidden) { pointer-events: auto; }
+        #dictionary-popup.opacity-0 { pointer-events: none; }
     </style>
-    <script>
-        window.logBuffer = [];
-        function logToUI(type, msg) {
-            const box = document.getElementById('error-text');
-            const str = `[${type}] ${msg}`;
-            if(box) { box.innerText += str + "\n"; box.scrollTop = box.scrollHeight; } else { window.logBuffer.push(str); }
-        }
-        const oldLog = console.log; console.log = function(...args) { oldLog(...args); logToUI('LOG', args.join(' ')); };
-        const oldWarn = console.warn; console.warn = function(...args) { oldWarn(...args); logToUI('WRN', args.join(' ')); };
-        const oldErr = console.error; console.error = function(...args) { oldErr(...args); logToUI('ERR', args.join(' ')); };
-        window.onerror = function(msg, url, line) { logToUI('CRITICAL', `${msg} \n@ ${url}:${line}`); document.getElementById('error-console').style.display = 'flex'; return false; };
-        window.onunhandledrejection = function(e) { logToUI('PROMISE', e.reason); document.getElementById('error-console').style.display = 'flex'; };
-        window.addEventListener('keydown', e => { if(e.key === 'F9' || e.key === '`') { const el = document.getElementById('error-console'); el.style.display = el.style.display === 'none' ? 'flex' : 'none'; } });
-        window.addEventListener('DOMContentLoaded', () => { const box = document.getElementById('error-text'); if(box && window.logBuffer.length) { box.innerText += window.logBuffer.join('\n') + "\n"; window.logBuffer = []; } });
-    </script>
 </head>
 <body class="is-loading font-inter transition-colors duration-300 bg-gray-50 text-gray-900 dark:bg-dark-bg dark:text-dark-text">
-    <div id="error-console">
-        <div><strong style="color:white; font-size:1.2em;">DEBUGGER</strong><button class="debug-btn" onclick="location.reload()">Reload</button><button class="debug-btn" onclick="document.getElementById('error-console').style.display='none'">Close</button><button class="debug-btn" onclick="document.getElementById('error-text').innerText=''">Clear</button></div>
-        <div id="error-text"></div>
+    
+    <div id="dictionary-popup" class="hidden opacity-0 fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm max-h-[70vh] bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 z-[70] p-6 flex flex-col gap-4 overflow-hidden">
+        <div class="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-gray-800 flex-none">
+            <h3 class="text-sm font-black text-gray-400 uppercase tracking-widest">Dictionary</h3>
+            <button id="dict-close-btn" class="text-gray-400 hover:text-gray-600 bg-gray-100 dark:bg-gray-800 rounded-full p-1"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+        </div>
+        <div id="dict-content" class="flex-grow overflow-y-auto space-y-6 pr-1 custom-scrollbar"></div>
     </div>
-    <div id="dictionary-popup" class="fixed top-1/2 left-1/2 w-[90%] max-w-sm max-h-[70vh] bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 z-[70] p-6 flex flex-col gap-4 font-inter overflow-hidden"><div class="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-gray-800 flex-none"><h3 class="text-sm font-black text-gray-400 uppercase tracking-widest">Dictionary</h3><button id="dict-close-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-full p-1 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button></div><div id="dict-content" class="flex-grow overflow-y-auto space-y-6 pr-1 custom-scrollbar"></div></div>
+
     <div id="splash-screen" class="fixed inset-0 z-[60] bg-white dark:bg-dark-bg flex flex-col items-center justify-center transition-opacity duration-500">
         <div class="text-4xl font-black text-indigo-600 dark:text-dark-primary mb-8 tracking-tighter animate-pulse">POLYGLOT.AI</div>
         <div class="w-64 space-y-3 mb-10">
@@ -55,11 +50,13 @@
         </div>
         <button id="start-app-btn" disabled class="px-8 py-4 bg-gray-200 dark:bg-gray-800 text-gray-400 font-bold rounded-2xl transition-all scale-95 opacity-50 cursor-not-allowed">Loading...</button>
     </div>
+
     <header id="menu-header" class="fixed top-0 left-0 right-0 h-16 bg-white/90 dark:bg-dark-bg/90 backdrop-blur-md border-b border-gray-200 dark:border-dark-border z-40 flex items-center justify-between px-4">
-        <button id="fullscreen-btn" class="w-10 h-10 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 active:scale-95 transition-all"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 4l-5 5M4 16v4m0 0h4m-4 0l5-5m5 5v-4m0 4h-4" /></svg></button>
-        <div class="text-lg font-black tracking-tighter text-indigo-600 dark:text-dark-primary">POLYGLOT<span class="text-gray-400 dark:text-gray-600">.AI</span></div>
-        <button id="settings-open-btn" class="w-10 h-10 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 active:scale-95 transition-all"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
+        <button id="fullscreen-btn" class="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 active:scale-95 transition-all"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 4l-5 5M4 16v4m0 0h4m-4 0l5-5m5 5v-4m0 4h-4" /></svg></button>
+        <div class="text-lg font-black tracking-tighter text-indigo-600 dark:text-dark-primary truncate text-center px-2">POLYGLOT<span class="text-gray-400 dark:text-gray-600">.AI</span></div>
+        <button id="settings-open-btn" class="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 active:scale-95 transition-all"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
     </header>
+
     <div id="main-menu" class="fixed inset-0 z-30 pt-20 px-6 flex flex-col items-center justify-center bg-gray-50 dark:bg-dark-bg transition-transform duration-300">
         <h1 class="text-3xl font-bold mb-8 text-gray-800 dark:text-white text-center">What do you want to learn?</h1>
         <div class="grid grid-cols-1 gap-6 w-full max-w-md">
@@ -69,36 +66,49 @@
             <button id="menu-blanks-btn" class="group relative overflow-hidden bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border p-6 rounded-3xl shadow-xl hover:shadow-2xl transition-all active:scale-95 text-left"><h2 class="text-2xl font-black text-teal-600 dark:text-teal-400 mb-2">Blanks</h2><p class="text-gray-500 dark:text-gray-400">Fill in the missing words.</p></button>
         </div>
     </div>
+
     <div id="flashcard-view" class="fixed inset-0 z-50 bg-gray-100 dark:bg-dark-bg hidden flex flex-col transition-colors duration-300"></div>
     <div id="quiz-view" class="fixed inset-0 z-50 bg-gray-100 dark:bg-dark-bg hidden flex flex-col transition-colors duration-300"></div>
     <div id="sentences-view" class="fixed inset-0 z-50 bg-gray-100 dark:bg-dark-bg hidden flex flex-col transition-colors duration-300"></div>
     <div id="blanks-view" class="fixed inset-0 z-50 bg-gray-100 dark:bg-dark-bg hidden flex flex-col transition-colors duration-300"></div>
+
     <div id="settings-modal" class="fixed inset-0 z-[60] flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
         <div id="modal-backdrop" class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
         <div class="relative bg-white dark:bg-dark-card rounded-3xl shadow-2xl w-full max-w-sm mx-6 p-6 transform scale-95 transition-transform duration-200 max-h-[85vh] overflow-y-auto border border-gray-100 dark:border-dark-border">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">Settings</h2>
             <div class="space-y-6">
-                <div><label class="block text-xs font-bold text-gray-400 mb-2">Target</label><select id="target-select" class="w-full bg-gray-50 border p-3 rounded-xl"><option value="ja">Japanese</option><option value="ko">Korean</option><option value="zh">Chinese</option><option value="en">English</option></select></div>
-                <div><label class="block text-xs font-bold text-gray-400 mb-2">Origin</label><select id="origin-select" class="w-full bg-gray-50 border p-3 rounded-xl"><option value="en">English</option><option value="ja">Japanese</option></select></div>
-                <div class="border-t pt-4">
-                    <button id="dict-accordion-btn" class="flex justify-between w-full font-bold"><span>Dictionary</span><span id="accordion-arrow-dict">▼</span></button>
-                    <div id="dict-options" class="hidden pt-4 space-y-4"><div class="flex justify-between"><span class="text-sm">Enable</span><input type="checkbox" id="toggle-dict-enable"></div></div>
+                <div><label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Target</label><select id="target-select" class="w-full bg-gray-50 dark:bg-black border dark:border-gray-800 p-3 rounded-xl text-gray-900 dark:text-white"><option value="ja">Japanese</option><option value="ko">Korean</option><option value="zh">Chinese</option><option value="en">English</option></select></div>
+                <div><label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Origin</label><select id="origin-select" class="w-full bg-gray-50 dark:bg-black border dark:border-gray-800 p-3 rounded-xl text-gray-900 dark:text-white"><option value="en">English</option><option value="ja">Japanese</option></select></div>
+                
+                <div class="flex justify-between items-center"><span class="font-bold dark:text-white">Dark Mode</span><input type="checkbox" id="toggle-dark" class="w-5 h-5"></div>
+                <div class="flex justify-between items-center"><span class="font-bold dark:text-white">Auto Play Audio</span><input type="checkbox" id="toggle-audio" class="w-5 h-5"></div>
+
+                <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+                    <button id="dict-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Dictionary</span><span id="accordion-arrow-dict" class="arrow">▼</span></button>
+                    <div id="dict-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Enable Popup</span><input type="checkbox" id="toggle-dict-enable"></div><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Read Audio</span><input type="checkbox" id="toggle-dict-audio"></div></div>
                 </div>
-                <input type="checkbox" id="toggle-dark" class="hidden"><select id="font-family-select" class="hidden"></select><select id="font-weight-select" class="hidden"></select>
-                <input type="checkbox" id="toggle-vocab" class="hidden"><input type="checkbox" id="toggle-reading" class="hidden"><input type="checkbox" id="toggle-sentence" class="hidden"><input type="checkbox" id="toggle-english" class="hidden">
-                <input type="checkbox" id="toggle-audio" class="hidden"><input type="checkbox" id="toggle-game-wait" class="hidden">
-                <select id="quiz-choices-select" class="hidden"><option value="4">4</option></select><input type="checkbox" id="toggle-quiz-audio" class="hidden"><input type="checkbox" id="toggle-quiz-click" class="hidden"><input type="checkbox" id="toggle-quiz-autoplay-correct" class="hidden">
-                <input type="checkbox" id="toggle-sent-audio" class="hidden"><input type="checkbox" id="toggle-sent-autoplay-correct" class="hidden">
-                <select id="blanks-choices-select" class="hidden"><option value="4">4</option></select><input type="checkbox" id="toggle-blanks-audio" class="hidden"><input type="checkbox" id="toggle-blanks-autoplay-correct" class="hidden">
-                <select id="dict-duration-select" class="hidden"><option value="2">2</option></select><input type="checkbox" id="toggle-dict-audio" class="hidden">
-                <button id="font-accordion-btn" class="hidden"></button><div id="font-options" class="hidden"></div>
-                <button id="display-accordion-btn" class="hidden"></button><div id="display-options" class="hidden"></div>
-                <button id="audio-accordion-btn" class="hidden"></button><div id="audio-options" class="hidden"></div>
-                <button id="quiz-accordion-btn" class="hidden"></button><div id="quiz-options" class="hidden"></div>
-                <button id="sent-accordion-btn" class="hidden"></button><div id="sent-options" class="hidden"></div>
-                <button id="blanks-accordion-btn" class="hidden"></button><div id="blanks-options" class="hidden"></div>
+
+                <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+                    <button id="display-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Card Visuals</span><span id="accordion-arrow-1" class="arrow">▼</span></button>
+                    <div id="display-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Show Vocab</span><input type="checkbox" id="toggle-vocab"></div><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Show Sentence</span><input type="checkbox" id="toggle-sentence"></div><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Show English</span><input type="checkbox" id="toggle-english"></div></div>
+                </div>
+
+                <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+                    <button id="quiz-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Quiz Settings</span><span id="accordion-arrow-3" class="arrow">▼</span></button>
+                    <div id="quiz-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Click Audio</span><input type="checkbox" id="toggle-quiz-audio"></div><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Auto Advance</span><input type="checkbox" id="toggle-quiz-autoplay-correct"></div></div>
+                </div>
+
+                <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+                    <button id="sent-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Sentence Settings</span><span id="accordion-arrow-sent" class="arrow">▼</span></button>
+                    <div id="sent-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Click Audio</span><input type="checkbox" id="toggle-sent-audio"></div></div>
+                </div>
+
+                <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+                    <button id="blanks-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Blanks Settings</span><span id="accordion-arrow-blanks" class="arrow">▼</span></button>
+                    <div id="blanks-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Click Audio</span><input type="checkbox" id="toggle-blanks-audio"></div></div>
+                </div>
             </div>
-            <button id="modal-done-btn" class="w-full mt-8 py-4 bg-indigo-600 text-white font-bold rounded-xl">Done</button>
+            <button id="modal-done-btn" class="w-full mt-8 py-4 bg-indigo-600 text-white font-bold rounded-xl active:scale-95 transition-transform">Done</button>
         </div>
     </div>
 </body>

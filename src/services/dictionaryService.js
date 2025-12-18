@@ -1,4 +1,5 @@
-import { db, ref, get, child } from './firebase';
+import { db } from './firebase'; 
+import { ref, get, child } from 'firebase/database';
 
 class DictionaryService {
     constructor() {
@@ -16,13 +17,14 @@ class DictionaryService {
             
             if (snapshot.exists()) {
                 const val = snapshot.val();
+                // Firebase stores numeric-key objects as Arrays. Handle both.
                 const list = Array.isArray(val) ? val : Object.values(val);
 
                 list.forEach(item => {
                     if (!item) return;
                     // Map Simplified
                     if (item.s) this.index[item.s] = item;
-                    // Map Traditional
+                    // Map Traditional if different
                     if (item.t && item.t !== item.s) this.index[item.t] = item;
                 });
                 
@@ -46,7 +48,7 @@ class DictionaryService {
             trad: entry.t,
             pinyin: entry.p,
             en: entry.e,
-            ko: entry.k
+            ko: entry.k // [FIX] Mapping JSON 'k' to 'ko'
         };
     }
 
@@ -54,6 +56,7 @@ class DictionaryService {
         if (!text) return [];
         const results = [];
         const seen = new Set();
+        // Regex matches Chinese Characters (Unified Ideographs)
         const regex = /[\u4E00-\u9FFF]/g;
         const matches = text.match(regex);
 

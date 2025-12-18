@@ -1,85 +1,91 @@
-import { db, ref, get, child } from './firebase';
+import { db } from './firebase'; // Local instance
+import { ref, get, child } from 'firebase/database'; // Official SDK functions
 import { settingsService } from './settingsService';
 
 class VocabService {
     constructor() {
-        this.list = [];
-        this.isInitialized = false;
+        this.vocabList = [];
+        this.isLoaded = false;
     }
 
     async fetchData() {
-        if (this.isInitialized) return;
-        
+        if (this.isLoaded) return;
+
         try {
-            console.log("[Vocab] Connecting to Firebase...");
+            console.log("[Vocab] Fetching from Firebase...");
             const dbRef = ref(db);
             const snapshot = await get(child(dbRef, 'vocab'));
-            
+
             if (snapshot.exists()) {
-                const val = snapshot.val();
-                // Handle Array (from JSON import) or Object (from manual push)
-                let rawList = Array.isArray(val) ? val : Object.values(val);
+                const data = snapshot.val();
                 
-                // 1. Remove nulls/empty slots
-                rawList = rawList.filter(item => item && typeof item === 'object');
-                console.log(`[Vocab] Found ${rawList.length} raw items. Mapping data...`);
-
-                // 2. Map Flat Data -> App Structure
-                this.list = rawList.map(item => this.mapItem(item));
+                // Convert object/array to standardized array
+                const rawList = Array.isArray(data) ? data : Object.values(data);
                 
-                // 3. Final Check: Ensure main text exists
-                this.list = this.list.filter(item => item.front.main && item.front.main !== "???");
+                this.vocabList = rawList.map(item => ({
+                    ...item,
+                    id: item.id !== undefined ? parseInt(item.id, 10) : 0
+                }));
 
-                this.isInitialized = true;
-                console.log(`[Vocab] Initialization Complete. ${this.list.length} valid cards ready.`);
+                // Sort by ID
+                this.vocabList.sort((a, b) => a.id - b.id);
+                
+                console.log(`[Vocab] Loaded ${this.vocabList.length} items.`);
             } else {
-                console.warn("[Vocab] No data found at '/vocab'. Check Database Import.");
-                this.list = [];
+                console.warn("[Vocab] No data found.");
+                this.vocabList = [];
             }
+            this.isLoaded = true;
+
         } catch (error) {
-            console.error("[Vocab] Fetch Error:", error);
-            this.list = [];
+            console.error("[Vocab] Error:", error);
+            this.vocabList = [];
         }
     }
 
-    mapItem(item) {
-        const settings = settingsService.get();
-        const t = settings.targetLang || 'ja'; 
-        const o = settings.originLang || 'en';
+    getAll() {
+        return this.vocabList;
+    }
+    
+    findIndexById(id) {
+        return this.vocabList.findIndex(item => item.id == id);
+    }
 
-        // Dynamic Field Access: item['ja'], item['en']
-        const frontText = item[t] || "???";
-        const backText = item[o] || "???";
+    getRandomIndex() {
+        if (this.vocabList.length === 0) return -1;
+        return Math.floor(Math.random() * this.vocabList.length);
+    }
+
+    getFlashcardData() {
+        const { targetLang, originLang } = settingsService.get();
         
-        // Reading Priority: Furigana > Pinyin > Romaji > Empty
-        let subText = item[t + '_furi'] || item[t + '_pin'] || item[t + '_roma'] || "";
+        return this.vocabList.map(item => {
+            const mainText = item[targetLang] || '...';
+            let subText = '', extraText = '';
 
-        return {
-            id: item.id || Math.floor(Math.random() * 9999999),
-            front: {
-                main: frontText,
-                sub: subText,
-                type: t
-            },
-            back: {
-                definition: backText,
-                sentenceTarget: item[t + '_ex'] || "",
-                sentenceOrigin: item[o + '_ex'] || ""
-            },
-            raw: item // Keep original just in case
-        };
-    }
+            if (targetLang === 'ja') {
+                extraText = item.ja_furi || ''; 
+                subText = item.ja_roma || '';
+            } else if (['zh', 'ko', 'ru'].includes(targetLang)) {
+                if(targetLang === 'zh') subText = item.zh_pin || '';
+                if(targetLang === 'ko') subText = item.ko_roma || '';
+                if(targetLang === 'ru') subText = item.ru_tr || '';
+            }
+            
+            const type = (targetLang === 'ja') ? 'JAPANESE' : 
+                         (['zh', 'ko', 'ru'].includes(targetLang)) ? 'NON_LATIN' : 'WESTERN';
 
-    getAll() { return this.list; }
-    getFlashcardData() { return this.list; }
-    
-    getRandomIndex() { 
-        if (this.list.length === 0) return 0;
-        return Math.floor(Math.random() * this.list.length); 
-    }
-    
-    findIndexById(id) { 
-        return this.list.findIndex(item => item.id === id); 
+            const definition = item[originLang] || item['en'] || 'Definition unavailable';
+            const sentenceTarget = item[targetLang + '_ex'] || '';
+            const sentenceOrigin = item[originLang + '_ex'] || '';
+
+            return {
+                id: item.id,
+                type: type,
+                front: { main: mainText, sub: subText, extra: extraText },
+                back: { definition: definition, sentenceTarget: sentenceTarget, sentenceOrigin: sentenceOrigin }
+            };
+        });
     }
 }
 

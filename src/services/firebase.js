@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, get, child } from 'firebase/database';
-import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getDatabase, ref, get, child, update, push, set } from 'firebase/database';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCf-bliVUmDXtujsXhj35qAyXuYUDli_TM",
@@ -12,21 +12,20 @@ const firebaseConfig = {
   appId: "1:847375215592:web:294ede3e908d11509ed25d"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
 
-// Named Exports
-export { 
-    app, 
-    db, 
-    auth, 
-    ref, 
-    get, 
-    child, 
-    signInAnonymously, 
-    signInWithPopup, 
-    googleProvider 
+// Export all necessary functions
+export { db, auth, signInAnonymously, onAuthStateChanged, ref, get, child, update, push, set };
+
+export const ensureAuth = async () => {
+    if (auth.currentUser) return auth.currentUser;
+    try {
+        const cred = await signInAnonymously(auth);
+        return cred.user;
+    } catch (error) {
+        console.error("Auth Error:", error);
+        throw error;
+    }
 };

@@ -1,31 +1,55 @@
+const defaultSettings = {
+    targetLang: 'ja',
+    originLang: 'en',
+    darkMode: false,
+    autoPlay: true,
+    
+    // Visuals
+    showVocab: true,
+    showReading: true,
+    showSentence: true,
+    showEnglish: true,
+    
+    // Dictionary
+    dictEnabled: true,
+    dictAudio: false,
+    
+    // Games
+    quizAnswerAudio: false,
+    quizAutoPlayCorrect: true,
+    quizWaitAudio: false, // New
+    
+    sentencesWordAudio: true,
+    sentAutoPlayCorrect: true,
+    sentWaitAudio: false, // New
+    
+    blanksAnswerAudio: true,
+    blanksAutoPlayCorrect: true,
+    blanksWaitAudio: false // New
+};
+
 class SettingsService {
-    constructor() {
-        this.config = {
-            targetLang: 'ja', originLang: 'en', fontFamily: 'font-inter', fontWeight: 'font-normal',
-            // Display
-            showVocab: true, showReading: true, showSentence: true, showEnglish: false, darkMode: false,
-            // Audio
-            autoPlay: true,
-            // Quiz
-            quizChoices: 4, quizClickMode: 'double', quizAnswerAudio: true, quizAutoPlayCorrect: true,
-            // Sentences
-            sentencesWordAudio: true, sentAutoPlayCorrect: true,
-            // Blanks
-            blanksChoices: 4, blanksAnswerAudio: true, blanksAutoPlayCorrect: true,
-            // Global Game
-            gameWaitAudio: true // Wait for audio to finish before advancing
-        };
-        
+    constructor() { this.settings = this.load(); }
+
+    load() {
         try {
-            const saved = localStorage.getItem('flashcard-settings');
-            if (saved) this.config = { ...this.config, ...JSON.parse(saved) };
-        } catch (e) { console.error("Settings Load Error", e); }
+            const saved = localStorage.getItem('polyglot_settings');
+            if (saved) return { ...defaultSettings, ...JSON.parse(saved) };
+        } catch (e) { console.error(e); }
+        return { ...defaultSettings };
     }
 
-    get() { return this.config; }
-    setTarget(lang) { this.config.targetLang = lang; this.save(); }
-    setOrigin(lang) { this.config.originLang = lang; this.save(); }
-    set(key, value) { this.config[key] = value; this.save(); }
-    save() { try { localStorage.setItem('flashcard-settings', JSON.stringify(this.config)); } catch (e) { console.error(e); } }
+    get() { return this.settings; }
+
+    set(key, value) {
+        this.settings[key] = value;
+        this.save();
+    }
+
+    setTarget(lang) { this.set('targetLang', lang); }
+    
+    save() {
+        try { localStorage.setItem('polyglot_settings', JSON.stringify(this.settings)); } catch (e) {}
+    }
 }
 export const settingsService = new SettingsService();

@@ -197,16 +197,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function showScoreChart() {
-        scoreModal.classList.remove('hidden'); setTimeout(()=>scoreModal.classList.remove('opacity-0'),10);
+        scoreModal.classList.remove('hidden'); 
+        setTimeout(()=>scoreModal.classList.remove('opacity-0'), 10);
         const container = document.getElementById('score-chart-container');
-        container.innerHTML = 'Loading...';
-        const curr = new Date(); const day = curr.getDay() || 7; if(day !== 1) curr.setHours(-24 * (day - 1));
-        const weekDates = []; for (let i = 0; i < 7; i++) { const d = new Date(curr); d.setDate(curr.getDate() + i); weekDates.push(scoreService.getDateStr(d)); }
+        container.innerHTML = '<div class="flex justify-center items-center h-full text-gray-500">Loading...</div>';
+
+        // Correctly calculate the Monday of the current week
+        const curr = new Date(); 
+        const day = curr.getDay() || 7; // Sunday is 0, make it 7
+        curr.setDate(curr.getDate() - (day - 1)); // Set to Monday
+        // Normalize time to avoid DST issues
+        curr.setHours(0,0,0,0);
+
+        const weekDates = []; 
+        for (let i = 0; i < 7; i++) { 
+            const d = new Date(curr); 
+            d.setDate(curr.getDate() + i); 
+            weekDates.push(scoreService.getDateStr(d)); 
+        }
+        
         const todayStr = scoreService.getDateStr(new Date());
 
         try {
-            const statsRef = scoreService.getUserStatsRef(); let data = {};
-            if (statsRef) { const snap = await get(statsRef); if (snap.exists()) data = snap.val(); }
+            const statsRef = scoreService.getUserStatsRef(); 
+            if (!statsRef) throw new Error("User not authenticated or ID missing");
+
+            let data = {};
+            const snap = await get(statsRef); 
+            if (snap.exists()) data = snap.val();
+            
             const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
             chartDataCache = weekDates.map((date, i) => {
                 const d = data[date] || {};
@@ -234,7 +253,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
             scoreModal.addEventListener('click', () => { container.querySelectorAll('.chart-breakdown').forEach(t => t.classList.remove('visible')); activeBarIndex = -1; });
-        } catch (e) { container.innerHTML = 'Error'; }
+        } catch (e) { 
+            console.error("Chart Render Error:", e);
+            container.innerHTML = `<div class="text-red-500 p-4 text-center text-xs">Error:<br>${e.message}</div>`; 
+        }
     }
 
     // --- Settings / Edit Logic Helpers ---

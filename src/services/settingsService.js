@@ -1,12 +1,12 @@
 const defaultSettings = {
     targetLang: 'ja',
     originLang: 'en',
-    darkMode: false,
+    darkMode: true, // CHANGED: Default to Dark Mode
     
     // Audio Defaults (Updated)
-    autoPlay: true,     // Default ON
-    waitForAudio: true, // Default ON
-    volume: 1.0,        // Default Max Volume
+    autoPlay: true,     
+    waitForAudio: true, 
+    volume: 1.0,        
     
     // Fonts
     fontFamily: 'notosans',

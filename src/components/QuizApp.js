@@ -3,7 +3,7 @@ import { textService } from '../services/textService';
 import { audioService } from '../services/audioService';
 import { settingsService } from '../services/settingsService';
 import { vocabService } from '../services/vocabService';
-import { scoreService } from '../services/scoreService'; // New Import
+import { scoreService } from '../services/scoreService';
 
 export class QuizApp {
     constructor() { 
@@ -97,7 +97,6 @@ export class QuizApp {
         if (correct) {
             el.classList.add('bg-green-500', 'border-green-600', 'text-white');
             el.classList.remove('bg-white', 'dark:bg-dark-card', 'text-gray-700', 'dark:text-white');
-            // SCORING: +10 on correct
             scoreService.addScore('quiz', 10);
         } else {
             el.classList.add('bg-red-500', 'border-red-600', 'text-white');
@@ -105,13 +104,17 @@ export class QuizApp {
         }
 
         if(correct) {
+            // UPDATED: Logic to read only the first part of the word
+            const fullText = this.currentData.target.front.main;
+            const textToRead = fullText.split(/[・･]/)[0]; // Split by dot (full or half width)
+
             const s = settingsService.get();
             if (s.quizAutoPlayCorrect) {
                 if (s.waitForAudio) {
-                    await audioService.speak(this.currentData.target.front.main, s.targetLang);
+                    await audioService.speak(textToRead, s.targetLang);
                     this.next();
                 } else {
-                    audioService.speak(this.currentData.target.front.main, s.targetLang);
+                    audioService.speak(textToRead, s.targetLang);
                     setTimeout(() => this.next(), 1000);
                 }
             } else {
@@ -127,6 +130,9 @@ export class QuizApp {
         if(!this.container) return;
         if(!this.currentData) { this.renderError(); return; }
         const { target, choices } = this.currentData;
+        
+        // PREPARE AUDIO TEXT: Split by dot for the main question audio as well
+        const audioText = target.front.main.split(/[・･]/)[0];
         
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
@@ -157,7 +163,8 @@ export class QuizApp {
         this.bind('#quiz-question-box', 'click', () => {
              if(!this.isProcessing && !window.wasLongPress) {
                  audioService.stop();
-                 audioService.speak(target.front.main, settingsService.get().targetLang);
+                 // UPDATED: Play only split text
+                 audioService.speak(audioText, settingsService.get().targetLang);
              }
         });
 
@@ -169,7 +176,8 @@ export class QuizApp {
         }));
         
         requestAnimationFrame(() => this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
-        if (settingsService.get().autoPlay) setTimeout(() => audioService.speak(target.front.main, settingsService.get().targetLang), 300);
+        // UPDATED: Auto-play uses split text
+        if (settingsService.get().autoPlay) setTimeout(() => audioService.speak(audioText, settingsService.get().targetLang), 300);
     }
 }
 export const quizApp = new QuizApp();

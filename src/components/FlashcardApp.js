@@ -92,9 +92,9 @@ export class FlashcardApp {
         const list = vocabService.getFlashcardData();
         const item = (list && list.length > 0) ? list[this.currentIndex] : { id: 0 };
         
-        // CSS CLASSES: 'select-none' 'outline-none' added to Card Container
+        // APPLIED: .no-tap-highlight class
         const content = (list && list.length > 0) ? 
-            `<div id="card-container" class="w-full max-w-md aspect-[3/4] relative select-none outline-none" style="-webkit-tap-highlight-color: transparent;">${Card(item, this.isFlipped)}</div>` 
+            `<div id="card-container" class="w-full max-w-md aspect-[3/4] relative select-none outline-none no-tap-highlight">${Card(item, this.isFlipped)}</div>` 
             : `<div class="p-10 text-center text-white pt-24">No Data</div>`;
 
         this.container.innerHTML = `

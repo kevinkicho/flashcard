@@ -172,12 +172,9 @@ export class BlanksApp {
         
         const { target, choices, sentence, blankedSentence, answerWord } = this.currentData;
         const rawSentence = sentence || blankedSentence || "";
+        const translationText = target.back.sentenceOrigin || "Fill in the blank";
         
-        // SEAMLESS PILL LOGIC:
-        // 1. Put the ANSWER word inside the span.
-        // 2. Make it transparent (invisible).
-        // 3. Add border-bottom to simulate blank.
-        // This reserves exactly the right width/height.
+        // SEAMLESS PILL LOGIC
         const pillHtml = `<span class="blank-pill inline-block border-b-2 border-gray-400 dark:border-gray-600 mx-1"><span class="pill-text text-transparent font-bold">${answerWord}</span></span>`;
         
         const displayHtml = rawSentence.replace(/_+/g, pillHtml);
@@ -194,8 +191,10 @@ export class BlanksApp {
             </div>
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div id="blanks-question-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-6 flex flex-col items-center justify-center relative overflow-hidden cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                    <div class="absolute top-0 left-0 right-0 bg-gray-50 dark:bg-black/20 py-2 px-4 text-center border-b border-gray-100 dark:border-white/5"><span class="text-sm font-bold text-gray-400 uppercase tracking-widest">Fill in the blank</span></div>
-                    <div class="text-2xl md:text-3xl font-medium text-gray-800 dark:text-white text-center leading-relaxed w-full" data-fit="true" data-wrap="true">${displayHtml}</div>
+                    <div class="absolute top-0 left-0 right-0 bg-gray-50 dark:bg-black/20 py-2 px-4 text-center border-b border-gray-100 dark:border-white/5">
+                        <span class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest" data-fit="true" data-type="hint">${translationText}</span>
+                    </div>
+                    <div class="text-2xl md:text-3xl font-medium text-gray-800 dark:text-white text-center leading-relaxed w-full pt-8" data-fit="true" data-wrap="true">${displayHtml}</div>
                 </div>
                 <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-3">
                     ${choices.map(c => `<button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex items-center justify-center" data-id="${c.id}"><div class="text-lg font-bold text-gray-700 dark:text-white text-center" data-fit="true">${c.front.main}</div></button>`).join('')}

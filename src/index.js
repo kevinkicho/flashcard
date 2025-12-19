@@ -245,6 +245,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentEditId = item.id;
                     const fullData = vocabService.getAll().find(v => v.id == item.id);
                     editModal.classList.remove('hidden'); setTimeout(()=>editModal.classList.remove('opacity-0'), 10);
+                    
+                    // Reset Scroll Position
+                    const scrollContainer = editModal.querySelector('.flex-1.overflow-y-auto');
+                    if(scrollContainer) scrollContainer.scrollTop = 0;
+
                     switchEditTab('vocab');
                     document.getElementById('edit-vocab-id').textContent = `ID: ${item.id}`;
                     renderVocabEditFields(fullData);
@@ -285,8 +290,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setChk('toggle-dark', s.darkMode); 
         setChk('toggle-audio', s.autoPlay); 
         setChk('toggle-wait-audio', s.waitForAudio);
-        
-        // Volume Slider
         setVal('volume-slider', s.volume !== undefined ? s.volume : 1.0);
 
         setVal('font-size-select', s.fontSize);
@@ -309,15 +312,10 @@ document.addEventListener('DOMContentLoaded', () => {
     bindSetting('target-select', 'targetLang', updateAllApps); bindSetting('origin-select', 'originLang', updateAllApps);
     bindSetting('toggle-dark', 'darkMode', () => document.documentElement.classList.toggle('dark'));
     bindSetting('toggle-audio', 'autoPlay'); bindSetting('toggle-wait-audio', 'waitForAudio');
-    
-    // Bind Volume
     bindSetting('volume-slider', 'volume');
-    
-    // Bind Fonts
     bindSetting('font-size-select', 'fontSize', () => document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
     bindSetting('font-family-select', 'fontFamily', () => document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
     bindSetting('font-weight-select', 'fontWeight', () => document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
-
     bindSetting('toggle-vocab', 'showVocab', updateAllApps); bindSetting('toggle-sentence', 'showSentence', updateAllApps); bindSetting('toggle-english', 'showEnglish', updateAllApps);
     bindSetting('toggle-dict-enable', 'dictEnabled'); bindSetting('toggle-dict-click-audio', 'dictClickAudio');
     bindSetting('toggle-quiz-audio', 'quizAnswerAudio'); bindSetting('toggle-quiz-autoplay-correct', 'quizAutoPlayCorrect'); bindSetting('toggle-quiz-double', 'quizDoubleClick');
@@ -334,7 +332,6 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const saved = settingsService.get(); loadSettingsToUI();
             if(saved.darkMode) document.documentElement.classList.add('dark');
-            
             await vocabService.init(); 
             dictionaryService.fetchData();
 

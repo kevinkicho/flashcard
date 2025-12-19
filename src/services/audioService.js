@@ -19,8 +19,9 @@ class AudioService {
         let cleaned = text;
 
         // Japanese Special Handling: Remove content after middle dot (full or half width)
+        // \u30FB is '・', \uFF65 is '･'
         if (lang && (lang === 'ja' || lang === 'ja-JP')) {
-            const parts = cleaned.split(/[・･]/);
+            const parts = cleaned.split(/[\u30FB\uFF65]/);
             if (parts.length > 0) {
                 cleaned = parts[0];
             }

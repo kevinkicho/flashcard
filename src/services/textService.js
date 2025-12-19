@@ -23,7 +23,6 @@ class TextService {
 
     // 3. JAPANESE TOKENIZER
     tokenizeJapanese(text, vocab = '', applyPostProcessing = true) {
-        // Safety check for Segmenter support
         if (typeof Intl === 'undefined' || typeof Intl.Segmenter !== 'function') {
             return text.split(''); // Fallback
         }
@@ -55,7 +54,7 @@ class TextService {
         let processed = [...chunks];
         let changed = true;
 
-        // --- STEP 1: Agglutination / Suffix Merging (Previous Phase 1) ---
+        // --- STEP 1: Agglutination ---
         while (changed) {
             changed = false;
             const nextPass = [];
@@ -85,12 +84,10 @@ class TextService {
             processed = nextPass;
         }
 
-        // --- STEP 2: Vocab Protection (Previous Phase 2) ---
-        // We do this EARLY so that later rules can override it if necessary (like the comma split)
+        // --- STEP 2: Vocab Protection ---
         if (vocab && vocab.trim().length > 0) {
             const cleanVocab = vocab.replace(/\s+/g, '');
             let currentMapStr = "";
-            
             const chunkMap = processed.map((chunk, idx) => {
                 const cleanChunk = chunk.replace(/\s+/g, '');
                 const start = currentMapStr.length;
@@ -110,10 +107,8 @@ class TextService {
 
             if (vocabRanges.length > 0) {
                 const groups = Array.from({ length: processed.length }, (_, i) => i);
-                
                 vocabRanges.forEach(vRange => {
-                    let startIndex = -1; 
-                    let endIndex = -1;
+                    let startIndex = -1, endIndex = -1;
                     for(let i=0; i<chunkMap.length; i++) {
                         const c = chunkMap[i];
                         if (c.start < vRange.end && c.end > vRange.start) { 
@@ -123,46 +118,36 @@ class TextService {
                     }
                     if (startIndex !== -1 && endIndex !== -1 && startIndex !== endIndex) {
                         const targetGroup = groups[startIndex]; 
-                        for(let k = startIndex + 1; k <= endIndex; k++) { 
-                            groups[k] = targetGroup; 
-                        }
+                        for(let k = startIndex + 1; k <= endIndex; k++) { groups[k] = targetGroup; }
                     }
                 });
-
                 const mergedChunks = []; 
                 let currentChunk = ""; 
                 let currentGroup = -1;
-                
                 for(let i=0; i<processed.length; i++) {
                     if (groups[i] !== currentGroup) { 
                         if (currentChunk) mergedChunks.push(currentChunk); 
                         currentChunk = processed[i]; 
                         currentGroup = groups[i]; 
-                    } else { 
-                        currentChunk += processed[i]; 
-                    }
+                    } else { currentChunk += processed[i]; }
                 }
                 if (currentChunk) mergedChunks.push(currentChunk); 
                 processed = mergedChunks;
             }
         }
 
-        // --- STEP 2.5: Cleanup broken vocab (Previous) ---
+        // --- STEP 2.5: Cleanup broken vocab ---
         if (vocab && vocab.length > 1) {
             const repairPass = [];
             for (let i = 0; i < processed.length; i++) {
                 if (i < processed.length - 1 && (processed[i] + processed[i+1]).includes(vocab)) {
-                    repairPass.push(processed[i] + processed[i+1]);
-                    i++;
-                } else {
-                    repairPass.push(processed[i]);
-                }
+                    repairPass.push(processed[i] + processed[i+1]); i++;
+                } else { repairPass.push(processed[i]); }
             }
             processed = repairPass;
         }
 
-        // --- STEP 3: Punctuation Merging (Previous Pass 3) ---
-        // We glue dangling punctuation first, so "Word" + "、" becomes "Word、"
+        // --- STEP 3: Punctuation Merging ---
         const punctPass = [];
         if (processed.length > 0) {
             punctPass.push(processed[0]);
@@ -175,36 +160,27 @@ class TextService {
             processed = punctPass;
         }
 
-
         // =========================================================
-        //  USER DEFINED POST-PROCESSING (PHASES 5, 6, 7)
-        //  These run LAST to ensure they override previous steps.
+        //  USER DEFINED POST-PROCESSING (PHASES 5 - 10)
         // =========================================================
 
-        // Phase 5: If a chunk ENDS with 'お', cut it and move it to the START of the NEXT chunk.
-        // e.g., "Mizuお" + "Kure" -> "Mizu" + "おKure"
+        // Phase 5: Trailing 'お' (Move to Next)
         for (let i = 0; i < processed.length - 1; i++) {
             if (processed[i].length > 1 && processed[i].endsWith('お')) {
-                // Cut 'お' from end of current
                 processed[i] = processed[i].slice(0, -1);
-                // Glue 'お' to start of next
                 processed[i+1] = 'お' + processed[i+1];
             }
         }
         processed = processed.filter(s => s.length > 0);
 
-        // Phase 6: If a chunk STARTS with 'は' or 'を', cut it and move it to the END of the PREVIOUS chunk.
-        // e.g., "Watashi" + "waTaberu" -> "Watashiwa" + "Taberu"
+        // Phase 6: Leading 'は'/'を' (Move to Previous)
         for (let i = 1; i < processed.length; i++) {
             const firstChar = processed[i].charAt(0);
             if (firstChar === 'は' || firstChar === 'を') {
-                if (processed[i].length > 1) { // Only if chunk has more than just the particle
-                    // Glue to end of previous
+                if (processed[i].length > 1) {
                     processed[i-1] += firstChar;
-                    // Cut from start of current
                     processed[i] = processed[i].slice(1);
                 } else {
-                    // If the chunk IS just "は" or "を", we just merge it wholly
                     processed[i-1] += processed[i];
                     processed[i] = ""; 
                 }
@@ -212,40 +188,78 @@ class TextService {
         }
         processed = processed.filter(s => s.length > 0);
 
-        // Phase 7: Comma Splitter
-        // Look for '、' anywhere in a chunk. If found, ensure the chunk ends immediately after it.
-        // e.g., "SentenceA、SentenceB" -> "SentenceA、" + "SentenceB"
+        // Helper to split a chunk and append the delimiter to the left side
+        const splitAfter = (chunk, delim) => {
+            if (!chunk.includes(delim)) return [chunk];
+            if (chunk === delim) return [chunk]; // Don't split just the delimiter
+            
+            // "WordをNext" -> "Wordを", "Next"
+            // "Wordを" -> "Wordを"
+            const parts = chunk.split(delim);
+            const result = [];
+            for (let k = 0; k < parts.length; k++) {
+                // If it's not the very last empty split (caused by delimiter at end)
+                if (k < parts.length - 1) {
+                    result.push(parts[k] + delim);
+                } else if (parts[k].length > 0) {
+                    result.push(parts[k]);
+                }
+            }
+            return result;
+        };
+
+        // Phase 7: Split after '、' and '。'
         let phase7Pass = [];
         processed.forEach(chunk => {
-            if (chunk.includes('、') && !chunk.endsWith('、')) {
-                // Split by comma
-                const parts = chunk.split('、');
-                for(let k = 0; k < parts.length; k++) {
-                    // If it's not the last part, it means it had a comma after it originally
-                    if (k < parts.length - 1) {
-                        phase7Pass.push(parts[k] + '、');
-                    } else if (parts[k].length > 0) {
-                        // The last part did not have a comma after it
-                        phase7Pass.push(parts[k]);
-                    }
-                }
-            } else {
-                phase7Pass.push(chunk);
-            }
+            // Check comma
+            let subChunks = splitAfter(chunk, '、');
+            // Check full stop for each sub-chunk
+            let finalChunks = [];
+            subChunks.forEach(s => {
+                finalChunks.push(...splitAfter(s, '。'));
+            });
+            phase7Pass.push(...finalChunks);
         });
         processed = phase7Pass;
+
+        // Phase 8: Split after 'を'
+        let phase8Pass = [];
+        processed.forEach(chunk => {
+            phase8Pass.push(...splitAfter(chunk, 'を'));
+        });
+        processed = phase8Pass;
+
+        // Phase 9: Split after 'いつも' and 'とても'
+        let phase9Pass = [];
+        processed.forEach(chunk => {
+            // We need a regex splitter here to handle multiple keywords
+            // "PartAいつもPartB" -> "PartAいつも", "PartB"
+            // Using a simple replace trick to add a temporary delimiter
+            let temp = chunk
+                .replace(/(いつも)/g, '$1\uFFFF')
+                .replace(/(とても)/g, '$1\uFFFF');
+            
+            const parts = temp.split('\uFFFF');
+            parts.forEach(p => { if(p) phase9Pass.push(p); });
+        });
+        processed = phase9Pass;
+
+        // Phase 10: Split BEFORE 'ちょっと'
+        // "PartAちょっと" -> "PartA", "ちょっと"
+        let phase10Pass = [];
+        processed.forEach(chunk => {
+             let temp = chunk.replace(/(ちょっと)/g, '\uFFFF$1');
+             const parts = temp.split('\uFFFF');
+             parts.forEach(p => { if(p) phase10Pass.push(p); });
+        });
+        processed = phase10Pass;
 
         return processed;
     }
 
     fitText(el) {
         if (!el) return;
-        
-        if (!el._fitText) {
-            el._fitText = true;
-            this.observer.observe(el);
-        }
-
+        if (!el._fitText) { el._fitText = true; this.observer.observe(el); }
         const settings = settingsService.get();
         const parent = el.parentElement;
         if (!parent) return;
@@ -260,50 +274,27 @@ class TextService {
             el.style.whiteSpace = 'normal';
             el.style.wordBreak = (settings.targetLang === 'ja' || settings.targetLang === 'zh') ? 'keep-all' : 'break-word';
             el.style.overflowWrap = 'break-word';
-        } else {
-            el.style.whiteSpace = 'nowrap';
-        }
+        } else { el.style.whiteSpace = 'nowrap'; }
 
-        let min = 10;
-        let max = 90; 
-        
+        let min = 10, max = 90; 
         if (el.getAttribute('data-type') === 'hint') max = 32; 
-
         if (settings.fontSize === 'small') max = Math.min(max, 24);
         else if (settings.fontSize === 'medium') max = Math.min(max, 48);
         else if (settings.fontSize === 'large') max = 120; 
 
-        let low = min;
-        let high = max;
-        let best = min;
-
+        let low = min, high = max, best = min;
         el.style.fontSize = `${high}px`; 
 
         while (low <= high) {
             const mid = Math.floor((low + high) / 2);
             el.style.fontSize = `${mid}px`;
+            const scrollH = el.scrollHeight, clientH = parent.clientHeight;
+            const scrollW = el.scrollWidth, clientW = parent.clientWidth;
+            const fits = allowWrap ? (scrollH <= clientH + 2) : (scrollW <= clientW + 2);
 
-            const scrollW = el.scrollWidth;
-            const scrollH = el.scrollHeight;
-            const clientW = parent.clientWidth;
-            const clientH = parent.clientHeight;
-
-            let fits = false;
-
-            if (allowWrap) {
-                fits = (scrollH <= clientH + 2);
-            } else {
-                fits = (scrollW <= clientW + 2);
-            }
-
-            if (fits) {
-                best = mid;
-                low = mid + 1;
-            } else {
-                high = mid - 1;
-            }
+            if (fits) { best = mid; low = mid + 1; } 
+            else { high = mid - 1; }
         }
-
         el.style.fontSize = `${best}px`;
     }
 
@@ -324,12 +315,7 @@ class TextService {
     }
 
     getFontWeight(key) {
-        const weights = {
-            'light': '300',
-            'normal': '400',
-            'bold': '700',
-            'thick': '900'
-        };
+        const weights = { 'light': '300', 'normal': '400', 'bold': '700', 'thick': '900' };
         return weights[key] || '700';
     }
 }

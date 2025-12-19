@@ -2,13 +2,25 @@ import { settingsService } from './settingsService';
 
 class TextService {
     constructor() {
-        // Fix: Use window resize instead of element observer to prevent infinite loops
         this.resizeTimer = null;
+        this.lastWidth = window.innerWidth;
+        this.lastHeight = window.innerHeight;
+
         window.addEventListener('resize', () => {
+            // SAFETY CHECK: Only run if window size changed significantly (e.g. rotation)
+            // This prevents infinite loops where fitText changes layout -> triggers resize -> fitText...
+            const wDiff = Math.abs(window.innerWidth - this.lastWidth);
+            const hDiff = Math.abs(window.innerHeight - this.lastHeight);
+            
+            if (wDiff < 50 && hDiff < 50) return; // Ignore small changes (keyboard, address bar, scrollbars)
+
+            this.lastWidth = window.innerWidth;
+            this.lastHeight = window.innerHeight;
+
             if (this.resizeTimer) clearTimeout(this.resizeTimer);
             this.resizeTimer = setTimeout(() => {
                 document.querySelectorAll('[data-fit="true"]').forEach(el => this.fitText(el));
-            }, 100);
+            }, 200);
         });
     }
 
@@ -20,7 +32,7 @@ class TextService {
             .replace(/_/g, '_<wbr>');               
     }
 
-    // 3. JAPANESE TOKENIZER (Phases 1-10 Restored)
+    // 3. JAPANESE TOKENIZER (Phases 1-10)
     tokenizeJapanese(text, vocab = '', applyPostProcessing = true) {
         if (typeof Intl === 'undefined' || typeof Intl.Segmenter !== 'function') {
             return text.split(''); // Fallback
@@ -187,7 +199,6 @@ class TextService {
         }
         processed = processed.filter(s => s.length > 0);
 
-        // Helper to split a chunk and append the delimiter to the left side
         const splitAfter = (chunk, delim) => {
             if (!chunk.includes(delim)) return [chunk];
             if (chunk === delim) return [chunk]; 
@@ -273,7 +284,6 @@ class TextService {
         let low = min, high = max, best = min;
         el.style.fontSize = `${high}px`; 
 
-        // Binary search to fit text
         while (low <= high) {
             const mid = Math.floor((low + high) / 2);
             el.style.fontSize = `${mid}px`;
@@ -285,7 +295,7 @@ class TextService {
             else { high = mid - 1; }
         }
         el.style.fontSize = `${best}px`;
-        el.style.visibility = 'visible'; // Ensure it's shown after fitting
+        el.style.visibility = 'visible';
     }
 
     getFontFamily(key) {

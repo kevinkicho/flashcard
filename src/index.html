@@ -102,8 +102,36 @@
         <div class="relative bg-white dark:bg-dark-card rounded-3xl shadow-2xl w-full max-w-sm mx-6 p-6 transform scale-95 transition-transform duration-200 max-h-[85vh] overflow-y-auto border border-gray-100 dark:border-dark-border custom-scrollbar">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">Settings</h2>
             <div class="space-y-6">
-                <div><label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Target</label><select id="target-select" class="w-full bg-gray-50 dark:bg-black border dark:border-gray-800 p-3 rounded-xl text-gray-900 dark:text-white"><option value="ja">Japanese</option><option value="ko">Korean</option><option value="zh">Chinese</option><option value="en">English</option></select></div>
-                <div><label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Origin</label><select id="origin-select" class="w-full bg-gray-50 dark:bg-black border dark:border-gray-800 p-3 rounded-xl text-gray-900 dark:text-white"><option value="en">English</option><option value="ja">Japanese</option></select></div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Target</label>
+                    <select id="target-select" class="w-full bg-gray-50 dark:bg-black border dark:border-gray-800 p-3 rounded-xl text-gray-900 dark:text-white">
+                        <option value="ja">Japanese (日本語)</option>
+                        <option value="ko">Korean (한국어)</option>
+                        <option value="zh">Chinese (中文)</option>
+                        <option value="en">English</option>
+                        <option value="ru">Russian (Русский)</option>
+                        <option value="fr">French (Français)</option>
+                        <option value="it">Italian (Italiano)</option>
+                        <option value="es">Spanish (Español)</option>
+                        <option value="pt">Portuguese (Português)</option>
+                        <option value="de">German (Deutsch)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Origin</label>
+                    <select id="origin-select" class="w-full bg-gray-50 dark:bg-black border dark:border-gray-800 p-3 rounded-xl text-gray-900 dark:text-white">
+                        <option value="en">English</option>
+                        <option value="ja">Japanese (日本語)</option>
+                        <option value="ko">Korean (한국어)</option>
+                        <option value="zh">Chinese (中文)</option>
+                        <option value="ru">Russian (Русский)</option>
+                        <option value="fr">French (Français)</option>
+                        <option value="it">Italian (Italiano)</option>
+                        <option value="es">Spanish (Español)</option>
+                        <option value="pt">Portuguese (Português)</option>
+                        <option value="de">German (Deutsch)</option>
+                    </select>
+                </div>
                 
                 <div class="flex justify-between items-center"><span class="font-bold dark:text-white">Dark Mode</span><input type="checkbox" id="toggle-dark" class="w-5 h-5"></div>
                 <div class="flex justify-between items-center"><span class="font-bold dark:text-white">Auto Play Audio</span><input type="checkbox" id="toggle-audio" class="w-5 h-5"></div>

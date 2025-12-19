@@ -64,37 +64,34 @@ export class BlanksApp {
         }
     }
 
-    /**
-     * Plays the blanked sentence with a pause where the blank is.
-     */
     async playBlankedSentence() {
         const { sentence } = this.currentData;
         const lang = settingsService.get().targetLang;
         
         if (!sentence) return;
-
-        // Split by the blank placeholder
         const parts = sentence.split('_______');
 
         if (parts.length > 1) {
-            // Speak Part 1
             if (parts[0].trim()) await audioService.speak(parts[0], lang);
-            
-            // Artificial Pause (800ms) for the blank
             await new Promise(r => setTimeout(r, 800));
-            
-            // Speak Part 2
             if (parts[1].trim()) await audioService.speak(parts[1], lang);
         } else {
-            // Fallback if no blank found (rare)
             await audioService.speak(sentence, lang);
         }
     }
 
     async submitAnswer(id, el) {
         if(this.isProcessing) return;
-        this.isProcessing = true;
+        
+        // FIX: Audio for answer choice (before correctness check)
+        const settings = settingsService.get();
+        if (settings.blanksAnswerAudio) {
+            // Find the text of the clicked button
+            const choiceText = el.querySelector('[data-fit="true"]').innerText;
+            audioService.speak(choiceText, settings.targetLang);
+        }
 
+        this.isProcessing = true;
         const correct = this.currentData.target.id === id;
         
         el.classList.remove('border-transparent');
@@ -107,18 +104,14 @@ export class BlanksApp {
         }
 
         if(correct) {
-            const s = settingsService.get();
             const answerWord = this.currentData.answerWord;
             const fullSentence = this.currentData.target.back.sentenceTarget;
 
-            // FIX: Reveal logic - Insert formatted word into the blank
             const qBox = document.getElementById('blanks-question-box');
             if(qBox) {
-                // Find the text container (second child usually)
                 const textEl = qBox.querySelector('[data-fit="true"]');
                 if (textEl) {
                     const currentHTML = textEl.innerHTML;
-                    // Replace the blank with styled answer
                     textEl.innerHTML = currentHTML.replace(
                         '_______', 
                         `<span class="text-indigo-600 dark:text-indigo-400 font-bold border-b-2 border-indigo-500 px-1 inline-block transform scale-110">${answerWord}</span>`
@@ -126,12 +119,12 @@ export class BlanksApp {
                 }
             }
 
-            if (s.blanksAutoPlayCorrect) {
-                if (s.waitForAudio) {
-                    await audioService.speak(fullSentence, s.targetLang);
+            if (settings.blanksAutoPlayCorrect) {
+                if (settings.waitForAudio) {
+                    await audioService.speak(fullSentence, settings.targetLang);
                     this.next();
                 } else {
-                    audioService.speak(fullSentence, s.targetLang);
+                    audioService.speak(fullSentence, settings.targetLang);
                     setTimeout(() => this.next(), 1500);
                 }
             } else {
@@ -146,7 +139,6 @@ export class BlanksApp {
         if(!this.container) return;
         if(!this.currentData || !this.currentData.target) { this.renderError(); return; }
         
-        // Robust variable access
         const { target, choices, sentence, blankedSentence } = this.currentData;
         const displaySentence = sentence || blankedSentence || "Error: Missing Sentence";
         
@@ -178,15 +170,14 @@ export class BlanksApp {
         this.bind('#blanks-close-btn', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
         this.bind('#blanks-id-input', 'change', (e) => { const newId = parseInt(e.target.value); vocabService.findIndexById(newId) !== -1 ? this.next(newId) : alert('ID not found'); });
         
-        // Manual Audio Replay on box click
+        // CHECK FLAG: Only play if NOT a long press (dictionary) interaction
         this.bind('#blanks-question-box', 'click', () => {
-            if (!this.isProcessing) this.playBlankedSentence();
+            if (!this.isProcessing && !window.wasLongPress) this.playBlankedSentence();
         });
 
         this.container.querySelectorAll('.quiz-option').forEach(btn => btn.addEventListener('click', (e) => this.submitAnswer(parseInt(e.currentTarget.dataset.id), e.currentTarget)));
         requestAnimationFrame(() => this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
 
-        // FIX: Auto-play the blanked sentence with pause
         if (settingsService.get().autoPlay) {
             setTimeout(() => this.playBlankedSentence(), 300);
         }

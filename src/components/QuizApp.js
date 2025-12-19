@@ -8,7 +8,7 @@ export class QuizApp {
     constructor() { 
         this.container = null; 
         this.currentData = null; 
-        this.isProcessing = false; // Prevents double clicking / breaking state
+        this.isProcessing = false; 
     }
 
     mount(elementId) { 
@@ -63,13 +63,11 @@ export class QuizApp {
     }
 
     async submitAnswer(id, el) {
-        // FIX: Prevent multiple clicks or clicks while audio is playing
         if(this.isProcessing) return;
         this.isProcessing = true;
 
         const correct = this.currentData.target.id === id;
         
-        // UI Update
         el.classList.remove('border-transparent');
         if (correct) {
             el.classList.add('bg-green-500', 'border-green-600', 'text-white');
@@ -82,12 +80,10 @@ export class QuizApp {
         if(correct) {
             const s = settingsService.get();
             if (s.quizAutoPlayCorrect) {
-                // FIX: If "wait for audio" is ON, we await the promise
                 if (s.waitForAudio) {
                     await audioService.speak(this.currentData.target.front.main, s.targetLang);
                     this.next();
                 } else {
-                    // Standard behavior: play and wait fixed time
                     audioService.speak(this.currentData.target.front.main, s.targetLang);
                     setTimeout(() => this.next(), 1000);
                 }
@@ -95,7 +91,6 @@ export class QuizApp {
                 setTimeout(() => this.next(), 1000);
             }
         } else {
-            // If incorrect, we usually let them try again, so unlock processing
             this.isProcessing = false;
         }
     }
@@ -127,16 +122,15 @@ export class QuizApp {
         this.bind('#quiz-random-btn', 'click', () => this.random());
         this.bind('#quiz-close-btn', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
         
-        // Audio click
+        // CHECK FLAG HERE TOO
         this.bind('#quiz-question-box', 'click', () => {
-             if(!this.isProcessing) audioService.speak(target.front.main, settingsService.get().targetLang);
+             if(!this.isProcessing && !window.wasLongPress) audioService.speak(target.front.main, settingsService.get().targetLang);
         });
 
         this.bind('#quiz-id-input', 'change', (e) => { const newId = parseInt(e.target.value); vocabService.findIndexById(newId) !== -1 ? this.next(newId) : alert('ID not found'); });
         
         this.container.querySelectorAll('.quiz-option').forEach(btn => btn.addEventListener('click', (e) => this.submitAnswer(parseInt(e.currentTarget.dataset.id), e.currentTarget)));
         requestAnimationFrame(() => this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
-        
         if (settingsService.get().autoPlay) setTimeout(() => audioService.speak(target.front.main, settingsService.get().targetLang), 300);
     }
 }

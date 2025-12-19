@@ -10,6 +10,9 @@ import { sentencesApp } from './components/SentencesApp';
 import { blanksApp } from './components/BlanksApp';
 import { audioService } from './services/audioService';
 
+// Global flag to prevent click-audio when dictionary opens
+window.wasLongPress = false;
+
 // --- PWA REGISTRATION ---
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -80,7 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
             target.classList.remove('hidden');
             const lastId = savedHistory[viewName];
             
-            // Only mount/init. Data refresh is now handled by the subscription below.
             if (viewName === 'flashcard') { flashcardApp.mount('flashcard-view'); if(lastId) flashcardApp.goto(lastId); }
             if (viewName === 'quiz') { quizApp.mount('quiz-view'); if(lastId) quizApp.next(lastId); }
             if (viewName === 'sentences') { sentencesApp.mount('sentences-view'); if(lastId) sentencesApp.next(lastId); }
@@ -94,11 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('router:home', () => history.back());
 
     // --- REALTIME DATA SUBSCRIPTION ---
-    // This connects the Service to the UI. Whenever DB changes, UI updates.
     vocabService.subscribe(() => {
         if (!views.flashcard.classList.contains('hidden')) flashcardApp.refresh();
-        // Quiz, Sentences, and Blanks usually auto-generate on next question, 
-        // but we can force refresh if needed. For now, Flashcards benefit most from live edits.
     });
 
     // --- DICTIONARY ---
@@ -109,6 +108,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let startX = 0, startY = 0;
 
     function showDictionary(text) {
+        // SET FLAG: Dictionary opened, so subsequent clicks are invalid
+        window.wasLongPress = true;
+
         const results = dictionaryService.lookupText(text);
         if (results.length > 0 && popup) {
             popupContent.innerHTML = results.map(data => `
@@ -142,7 +144,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const target = e.target.closest('.quiz-option, #flashcard-text, #quiz-question-box, #blanks-question-box, .user-word, .bank-word');
         if (!target) return;
         if (e.type === 'touchstart') { startX = e.touches[0].clientX; startY = e.touches[0].clientY; } else { startX = e.clientX; startY = e.clientY; }
-        longPressTimer = setTimeout(() => { showDictionary(target.textContent.trim()); }, 600);
+        
+        longPressTimer = setTimeout(() => { 
+            showDictionary(target.textContent.trim()); 
+        }, 600);
     };
     const handleMove = (e) => {
         if (!longPressTimer) return;
@@ -150,7 +155,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let cY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
         if (Math.abs(cX - startX) > 10 || Math.abs(cY - startY) > 10) { clearTimeout(longPressTimer); longPressTimer = null; }
     };
-    const handleEnd = () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } };
+    const handleEnd = () => { 
+        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } 
+        // Reset the flag after a short delay so click events have time to fire and see it
+        if (window.wasLongPress) {
+            setTimeout(() => { window.wasLongPress = false; }, 200);
+        }
+    };
     document.addEventListener('touchstart', handleStart, {passive:true});
     document.addEventListener('touchend', handleEnd);
     document.addEventListener('mousedown', handleStart);
@@ -323,11 +334,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 updates[input.dataset.field] = input.value;
             });
             try {
-                // We just update Firebase. The onValue listener in vocabService will 
-                // automatically catch this change, update local data, and refresh the UI.
                 await update(ref(db, `vocab/${currentEditId}`), updates);
                 alert('Vocab Saved!');
-                // No need to manually fetch or refresh here anymore!
             } catch(e) { console.error(e); alert('Error'); }
         });
     }
@@ -403,9 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadSettingsToUI();
             if(saved.darkMode) document.documentElement.classList.add('dark');
             
-            // 1. Init Realtime Vocab
             vocabService.init(); 
-            // 2. Fetch Dictionary (still static fetch for now as it's large)
             await dictionaryService.fetchData();
             
             const startBtn = document.getElementById('start-app-btn');

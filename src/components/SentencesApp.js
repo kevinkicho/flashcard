@@ -11,7 +11,7 @@ export class SentencesApp {
         this.userSentence = []; 
         this.shuffledWords = []; 
         this.wordBankStatus = [];
-        this.isProcessing = false; // Prevents breaking the game by clicking during animations
+        this.isProcessing = false; 
     }
     
     mount(elementId) { 
@@ -54,6 +54,7 @@ export class SentencesApp {
 
     playTargetAudio() {
         if (this.currentData) {
+            if (window.wasLongPress) return Promise.resolve();
             return audioService.speak(this.currentData.cleanSentence, settingsService.get().targetLang);
         }
         return Promise.resolve();
@@ -68,7 +69,14 @@ export class SentencesApp {
         const targetSentence = item.back.sentenceTarget || item.front.main || "";
         const clean = targetSentence.replace(/<[^>]*>?/gm, '');
         const settings = settingsService.get();
-        let words = settings.targetLang === 'ja' ? textService.tokenizeJapanese(clean, item.front.main, true) : clean.split(' ').filter(w => w.length);
+        
+        let words = [];
+        if (settings.targetLang === 'ja') {
+            // Updated tokenizer is now in textService
+            words = textService.tokenizeJapanese(clean);
+        } else {
+            words = clean.split(' ').filter(w => w.length);
+        }
 
         this.currentData = { ...item, originalWords: words, cleanSentence: clean };
         this.shuffledWords = [...words].map((word, id) => ({ word, id })).sort(() => Math.random() - 0.5);
@@ -82,7 +90,7 @@ export class SentencesApp {
     }
 
     handleBankClick(idx) { 
-        if (this.isProcessing) return; // Guard against clicks during processing
+        if (this.isProcessing || window.wasLongPress) return; 
         if (this.wordBankStatus[idx]) return; 
         const w = this.shuffledWords[idx]; 
         this.userSentence.push({...w, bankIndex: idx}); 
@@ -97,7 +105,7 @@ export class SentencesApp {
     }
     
     handleUserClick(idx) { 
-        if (this.isProcessing) return; // Guard against clicks during processing
+        if (this.isProcessing || window.wasLongPress) return; 
         const item = this.userSentence[idx]; 
         this.wordBankStatus[item.bankIndex] = false; 
         this.userSentence.splice(idx, 1); 
@@ -115,18 +123,16 @@ export class SentencesApp {
             const t = this.currentData.originalWords.join('');
             
             if (u.replace(/\s/g, '') === t.replace(/\s/g, '')) {
-                this.isProcessing = true; // Lock the game
+                this.isProcessing = true; 
                 const zone = this.container.querySelector('#sentence-drop-zone');
                 if (zone) zone.classList.add('bg-green-100', 'border-green-500');
                 
                 const s = settingsService.get();
                 if (s.sentAutoPlayCorrect) {
                     if (s.waitForAudio) {
-                        // Wait for audio to finish before moving on
                         await this.playTargetAudio();
                         this.next();
                     } else {
-                        // Original behavior: play and move on after fixed delay
                         this.playTargetAudio();
                         setTimeout(() => this.next(), 1500);
                     }
@@ -149,6 +155,8 @@ export class SentencesApp {
         const item = this.currentData;
         if (!item) { this.renderError(); return; }
         
+        const hintText = textService.smartWrap(item.back.sentenceOrigin);
+
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2"><div class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full pl-1 pr-3 py-1 flex items-center shadow-sm"><span class="bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 text-xs font-bold px-2 py-1 rounded-full mr-2">ID</span><input type="number" id="sent-id-input" class="w-12 bg-transparent border-none text-center font-bold text-gray-700 dark:text-white text-sm p-0" value="${item.id}"></div>
@@ -161,8 +169,8 @@ export class SentencesApp {
             </div>
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div id="sent-hint-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-6 flex flex-col relative">
-                    <div class="mt-2 text-center flex-none">
-                        <h2 class="text-xl font-bold text-gray-500 dark:text-gray-400">${item.back.sentenceOrigin}</h2>
+                    <div class="mt-2 text-center flex-none h-16 flex items-center justify-center">
+                        <h2 class="text-xl font-bold text-gray-500 dark:text-gray-400 w-full" data-fit="true" data-wrap="true">${hintText}</h2>
                     </div>
                     <div id="sentence-drop-zone" class="flex-grow mt-4 bg-gray-50 dark:bg-black/20 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl p-6 flex flex-wrap content-start gap-3 overflow-y-auto">
                         ${this.userSentence.map((obj, i) => `<button class="user-word px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:scale-105 transition-transform" data-index="${i}">${obj.word}</button>`).join('')}
@@ -188,6 +196,8 @@ export class SentencesApp {
 
         this.container.querySelectorAll('.bank-word').forEach(btn => btn.addEventListener('click', () => this.handleBankClick(parseInt(btn.dataset.index))));
         this.container.querySelectorAll('.user-word').forEach(btn => btn.addEventListener('click', () => this.handleUserClick(parseInt(btn.dataset.index))));
+        
+        requestAnimationFrame(() => this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
     }
 }
 export const sentencesApp = new SentencesApp();

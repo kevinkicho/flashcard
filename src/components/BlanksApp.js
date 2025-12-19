@@ -1,3 +1,4 @@
+// ... existing imports ...
 import { vocabService } from '../services/vocabService';
 import { blanksService } from '../services/blanksService';
 import { textService } from '../services/textService';
@@ -9,6 +10,8 @@ export class BlanksApp {
         this.container = null; 
         this.currentData = null; 
         this.isProcessing = false;
+        this.selectedAnswerId = null;
+        this.playbackId = 0; 
     }
 
     mount(elementId) { 
@@ -25,6 +28,7 @@ export class BlanksApp {
 
     random() { 
         this.isProcessing = false;
+        this.selectedAnswerId = null;
         audioService.stop();
         this.currentData = blanksService.generateQuestion(null); 
         this.render(); 
@@ -32,6 +36,7 @@ export class BlanksApp {
     
     next(id = null) { 
         this.isProcessing = false;
+        this.selectedAnswerId = null;
         audioService.stop();
         if(id===null && this.currentData) {
             const l=vocabService.getAll(); 
@@ -65,6 +70,9 @@ export class BlanksApp {
     }
 
     async playBlankedSentence() {
+        this.playbackId++;
+        const currentPid = this.playbackId;
+
         const { sentence } = this.currentData;
         const lang = settingsService.get().targetLang;
         
@@ -73,28 +81,47 @@ export class BlanksApp {
 
         if (parts.length > 1) {
             if (parts[0].trim()) await audioService.speak(parts[0], lang);
+            if (this.playbackId !== currentPid) return; 
+            
             await new Promise(r => setTimeout(r, 800));
+            if (this.playbackId !== currentPid) return; 
+            
             if (parts[1].trim()) await audioService.speak(parts[1], lang);
         } else {
             await audioService.speak(sentence, lang);
         }
     }
 
-    async submitAnswer(id, el) {
-        if(this.isProcessing) return;
-        
-        // FIX: Audio for answer choice (before correctness check)
+    handleOptionClick(id, el, choiceText) {
+        if (this.isProcessing || window.wasLongPress) return;
+
         const settings = settingsService.get();
-        if (settings.blanksAnswerAudio) {
-            // Find the text of the clicked button
-            const choiceText = el.querySelector('[data-fit="true"]').innerText;
+
+        if (settings.blanksAnswerAudio || settings.blanksDoubleClick) {
             audioService.speak(choiceText, settings.targetLang);
         }
 
+        if (settings.blanksDoubleClick) {
+            if (this.selectedAnswerId !== id) {
+                this.selectedAnswerId = id;
+                this.container.querySelectorAll('.quiz-option').forEach(b => {
+                    b.classList.remove('border-yellow-400', 'ring-2', 'ring-yellow-400');
+                    b.classList.add('border-transparent');
+                });
+                el.classList.remove('border-transparent');
+                el.classList.add('border-yellow-400', 'ring-2', 'ring-yellow-400');
+                return;
+            }
+        }
+
+        this.submitAnswer(id, el);
+    }
+
+    async submitAnswer(id, el) {
         this.isProcessing = true;
         const correct = this.currentData.target.id === id;
         
-        el.classList.remove('border-transparent');
+        el.classList.remove('border-transparent', 'border-yellow-400', 'ring-2', 'ring-yellow-400');
         if (correct) {
             el.classList.add('bg-green-500', 'border-green-600', 'text-white');
             el.classList.remove('bg-white', 'dark:bg-dark-card', 'text-gray-700', 'dark:text-white');
@@ -119,12 +146,13 @@ export class BlanksApp {
                 }
             }
 
-            if (settings.blanksAutoPlayCorrect) {
-                if (settings.waitForAudio) {
-                    await audioService.speak(fullSentence, settings.targetLang);
+            const s = settingsService.get();
+            if (s.blanksAutoPlayCorrect) {
+                if (s.waitForAudio) {
+                    await audioService.speak(fullSentence, s.targetLang);
                     this.next();
                 } else {
-                    audioService.speak(fullSentence, settings.targetLang);
+                    audioService.speak(fullSentence, s.targetLang);
                     setTimeout(() => this.next(), 1500);
                 }
             } else {
@@ -132,6 +160,7 @@ export class BlanksApp {
             }
         } else {
             this.isProcessing = false;
+            this.selectedAnswerId = null;
         }
     }
 
@@ -155,7 +184,7 @@ export class BlanksApp {
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div id="blanks-question-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-6 flex flex-col items-center justify-center relative overflow-hidden cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                     <div class="absolute top-0 left-0 right-0 bg-gray-50 dark:bg-black/20 py-2 px-4 text-center border-b border-gray-100 dark:border-white/5"><span class="text-sm font-bold text-gray-400 uppercase tracking-widest">Fill in the blank</span></div>
-                    <div class="text-2xl md:text-3xl font-medium text-gray-800 dark:text-white text-center leading-relaxed" data-fit="true">${displaySentence}</div>
+                    <div class="text-2xl md:text-3xl font-medium text-gray-800 dark:text-white text-center leading-relaxed w-full" data-fit="true" data-wrap="true">${displaySentence}</div>
                 </div>
                 <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-3">
                     ${choices.map(c => `<button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex items-center justify-center" data-id="${c.id}"><div class="text-lg font-bold text-gray-700 dark:text-white text-center" data-fit="true">${c.front.main}</div></button>`).join('')}
@@ -170,12 +199,18 @@ export class BlanksApp {
         this.bind('#blanks-close-btn', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
         this.bind('#blanks-id-input', 'change', (e) => { const newId = parseInt(e.target.value); vocabService.findIndexById(newId) !== -1 ? this.next(newId) : alert('ID not found'); });
         
-        // CHECK FLAG: Only play if NOT a long press (dictionary) interaction
         this.bind('#blanks-question-box', 'click', () => {
-            if (!this.isProcessing && !window.wasLongPress) this.playBlankedSentence();
+            if (!this.isProcessing && !window.wasLongPress) {
+                audioService.stop();
+                this.playBlankedSentence();
+            }
         });
 
-        this.container.querySelectorAll('.quiz-option').forEach(btn => btn.addEventListener('click', (e) => this.submitAnswer(parseInt(e.currentTarget.dataset.id), e.currentTarget)));
+        this.container.querySelectorAll('.quiz-option').forEach(btn => btn.addEventListener('click', (e) => {
+            const text = btn.querySelector('[data-fit="true"]').innerText;
+            this.handleOptionClick(parseInt(e.currentTarget.dataset.id), e.currentTarget, text);
+        }));
+        
         requestAnimationFrame(() => this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
 
         if (settingsService.get().autoPlay) {

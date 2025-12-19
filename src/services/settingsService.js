@@ -3,25 +3,39 @@ const defaultSettings = {
     originLang: 'en',
     darkMode: false,
     autoPlay: true,
-    fontFamily: 'font-inter',
-    fontWeight: 'font-bold',
-    fontSize: 'medium',
+    
+    // Fonts
+    fontFamily: 'notosans', // CJK Safe Default
+    fontWeight: 'bold',
+    fontSize: 'medium', // small, medium, large
+    
+    // Visuals
     showVocab: true,
     showReading: true,
     showSentence: true,
     showEnglish: true,
+    
+    // Quiz
     quizChoices: 4,
     quizAnswerAudio: false,
     quizClickMode: 'single',
     quizAutoPlayCorrect: true,
+    quizDoubleClick: true,
+    
+    // Sentences
     sentencesWordAudio: true,
     sentAutoPlayCorrect: true,
+    
+    // Blanks
     blanksChoices: 4,
     blanksAnswerAudio: true,
     blanksAutoPlayCorrect: true,
+    blanksDoubleClick: true,
+    
+    // Dictionary
     dictEnabled: true,
-    dictClickAudio: false, // Changed from dictAudio
-    waitForAudio: false    // New global setting
+    dictClickAudio: false, 
+    waitForAudio: false
 };
 
 class SettingsService {

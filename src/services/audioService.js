@@ -3,7 +3,7 @@ import { settingsService } from './settingsService';
 class AudioService {
     constructor() {
         this.synth = window.speechSynthesis;
-        this.currentUtterance = null; // Prevent GC on Android
+        this.currentUtterance = null;
         this.checkTimer = null;
     }
 
@@ -15,11 +15,22 @@ class AudioService {
     }
 
     /**
-     * Removes punctuation and visual blanks so TTS reads smoothly.
+     * Removes punctuation and visual blanks.
+     * NEW: If lang is Japanese ('ja'), it splits by '・' and keeps only the first part.
      */
-    cleanText(text) {
+    cleanText(text, lang) {
         if (!text) return "";
-        return text
+        
+        let cleaned = text;
+
+        // Japanese Special Handling: Remove content after middle dot
+        if (lang && (lang === 'ja' || lang === 'ja-JP')) {
+            if (cleaned.includes('・')) {
+                cleaned = cleaned.split('・')[0];
+            }
+        }
+
+        return cleaned
             // Remove Japanese punctuation (Maru, Ten, brackets)
             .replace(/[。、，．！？?.,!「」『』()（）]/g, ' ') 
             // Remove underscores (blanks) so it doesn't say "underscore"
@@ -39,8 +50,10 @@ class AudioService {
                 return;
             }
 
-            // 1. Sanitize text (Strip punctuation/blanks)
-            const safeText = this.cleanText(text);
+            // 1. Sanitize text (Strip punctuation/blanks, fix Japanese compounds)
+            // PASS lang to cleanText now
+            const safeText = this.cleanText(text, lang);
+            
             if (!safeText) {
                 resolve();
                 return;

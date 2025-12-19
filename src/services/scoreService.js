@@ -6,11 +6,19 @@ class ScoreService {
         this.todayScore = 0;
         this.subscribers = [];
         this.userId = null;
-        
+        this.isInitialized = false;
+    }
+
+    // NEW: We call this manually from index.js when the page is ready
+    init() {
+        if (this.isInitialized) return;
+        this.isInitialized = true;
+
         auth.onAuthStateChanged(user => {
             if (user) {
                 this.userId = user.uid;
                 this.listenToToday();
+                // Check achievements only after we have a user
                 achievementService.checkLoginAchievements(user.uid);
             } else {
                 this.userId = null;
@@ -48,24 +56,17 @@ class ScoreService {
         const dateStr = this.getDateStr();
         
         const updates = {};
-        // Daily
         updates[`users/${this.userId}/stats/${dateStr}/${gameType}`] = increment(points);
-        // Totals
         updates[`users/${this.userId}/stats/total/${gameType}`] = increment(points);
         updates[`users/${this.userId}/stats/total/score`] = increment(points);
         
-        // Wins/Streaks
         if (points > 0) {
              updates[`users/${this.userId}/stats/total/${gameType}_wins`] = increment(1);
              updates[`users/${this.userId}/stats/streaks/${gameType}`] = increment(1);
-        } else {
-             // Reset streak on loss if needed (optional logic)
-             // updates[`users/${this.userId}/stats/streaks/${gameType}`] = 0; 
         }
 
         update(ref(db), updates)
             .then(() => {
-                // Pass current score + points for evaluation
                 achievementService.checkScoreAchievements(this.userId, gameType, points, this.todayScore + points);
             })
             .catch(err => console.error("Score update failed", err));
@@ -78,9 +79,10 @@ class ScoreService {
 
     notify() {
         this.subscribers.forEach(cb => cb(this.todayScore));
-        document.querySelectorAll('.global-score-display').forEach(el => {
-            el.textContent = this.todayScore;
-        });
+        const displays = document.querySelectorAll('.global-score-display');
+        if (displays.length) {
+            displays.forEach(el => el.textContent = this.todayScore);
+        }
     }
 
     getUserStatsRef() {

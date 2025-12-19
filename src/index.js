@@ -21,13 +21,22 @@ let savedHistory = {}; try { savedHistory = JSON.parse(localStorage.getItem('pol
 window.saveGameHistory = (game, id) => { if (id) { savedHistory[game] = id; localStorage.setItem('polyglot_history', JSON.stringify(savedHistory)); } };
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- CRITICAL FIX: Initialize Score Service only after DOM is ready ---
+    scoreService.init();
+
     const views = { home: document.getElementById('main-menu'), flashcard: document.getElementById('flashcard-view'), quiz: document.getElementById('quiz-view'), sentences: document.getElementById('sentences-view'), blanks: document.getElementById('blanks-view') };
     const iconOut = document.getElementById('icon-user-out'); const iconIn = document.getElementById('icon-user-in'); let currentUser = null;
 
     onAuthStateChanged(auth, async (user) => {
         currentUser = user;
-        if (user && !user.isAnonymous) { iconOut.classList.add('hidden'); iconIn.classList.remove('hidden'); iconIn.src = user.photoURL; }
-        else { try { await signInAnonymously(auth); } catch(e){} iconOut.classList.remove('hidden'); iconIn.classList.add('hidden'); }
+        if (user && !user.isAnonymous) { 
+            if(iconOut) iconOut.classList.add('hidden'); 
+            if(iconIn) { iconIn.classList.remove('hidden'); iconIn.src = user.photoURL; }
+        } else { 
+            try { await signInAnonymously(auth); } catch(e){} 
+            if(iconOut) iconOut.classList.remove('hidden'); 
+            if(iconIn) iconIn.classList.add('hidden'); 
+        }
         updateEditPermissions();
     });
 
@@ -44,12 +53,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const achPopup = document.getElementById('achievement-popup');
     window.addEventListener('achievement:unlocked', (e) => {
         const ach = e.detail;
-        document.getElementById('ach-popup-title').textContent = ach.title;
-        document.getElementById('ach-popup-desc').textContent = ach.desc;
-        document.getElementById('ach-popup-pts').textContent = ach.points;
+        const titleEl = document.getElementById('ach-popup-title');
+        const descEl = document.getElementById('ach-popup-desc');
+        const ptsEl = document.getElementById('ach-popup-pts');
+
+        // SAFETY CHECK: Ensure elements exist before trying to update them
+        if (!titleEl || !descEl || !ptsEl || !achPopup) {
+            console.warn("Achievement unlocked but DOM not ready:", ach);
+            return;
+        }
+
+        titleEl.textContent = ach.title;
+        descEl.textContent = ach.desc;
+        ptsEl.textContent = ach.points;
+        
         achPopup.classList.remove('hidden');
         
-        // Funky sound effect
         const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3'); 
         audio.volume = 0.5; audio.play().catch(()=>{});
 
@@ -62,39 +81,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const achClose = document.getElementById('ach-list-close');
     const achContent = document.getElementById('ach-list-content');
 
-    achBtn.addEventListener('click', async () => {
-        achModal.classList.remove('hidden'); setTimeout(()=>achModal.classList.remove('opacity-0'), 10);
-        achContent.innerHTML = '<div class="text-center p-4">Loading...</div>';
-        const unlockedMap = currentUser ? await achievementService.getUserAchievements(currentUser.uid) : {};
-        let html = '';
-        const sorted = [...ACHIEVEMENTS].sort((a,b) => {
-            const aU = !!unlockedMap[a.id], bU = !!unlockedMap[b.id];
-            if (aU && !bU) return -1; if (!aU && bU) return 1; return b.points - a.points;
+    if (achBtn) {
+        achBtn.addEventListener('click', async () => {
+            achModal.classList.remove('hidden'); setTimeout(()=>achModal.classList.remove('opacity-0'), 10);
+            achContent.innerHTML = '<div class="text-center p-4">Loading...</div>';
+            const unlockedMap = currentUser ? await achievementService.getUserAchievements(currentUser.uid) : {};
+            let html = '';
+            const sorted = [...ACHIEVEMENTS].sort((a,b) => {
+                const aU = !!unlockedMap[a.id], bU = !!unlockedMap[b.id];
+                if (aU && !bU) return -1; if (!aU && bU) return 1; return b.points - a.points;
+            });
+            sorted.forEach(ach => {
+                const unlocked = !!unlockedMap[ach.id];
+                const bgClass = unlocked ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-orange-200 dark:bg-gray-800 dark:border-yellow-900' : 'bg-gray-50 border-gray-100 dark:bg-black/20 dark:border-gray-800 opacity-60';
+                const icon = unlocked ? '🏆' : '🔒';
+                const textClass = unlocked ? 'text-gray-900 dark:text-white' : 'text-gray-400';
+                html += `<div class="flex items-center gap-3 p-3 rounded-xl border ${bgClass}"><div class="text-2xl">${icon}</div><div class="flex-1"><h4 class="font-bold text-sm ${textClass}">${ach.title}</h4><p class="text-[10px] text-gray-500">${ach.desc}</p></div><div class="text-xs font-black text-orange-500">+${ach.points}</div></div>`;
+            });
+            achContent.innerHTML = html;
         });
-        sorted.forEach(ach => {
-            const unlocked = !!unlockedMap[ach.id];
-            const bgClass = unlocked ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-orange-200 dark:bg-gray-800 dark:border-yellow-900' : 'bg-gray-50 border-gray-100 dark:bg-black/20 dark:border-gray-800 opacity-60';
-            const icon = unlocked ? '🏆' : '🔒';
-            const textClass = unlocked ? 'text-gray-900 dark:text-white' : 'text-gray-400';
-            html += `<div class="flex items-center gap-3 p-3 rounded-xl border ${bgClass}"><div class="text-2xl">${icon}</div><div class="flex-1"><h4 class="font-bold text-sm ${textClass}">${ach.title}</h4><p class="text-[10px] text-gray-500">${ach.desc}</p></div><div class="text-xs font-black text-orange-500">+${ach.points}</div></div>`;
-        });
-        achContent.innerHTML = html;
-    });
-    achClose.addEventListener('click', () => { achModal.classList.add('opacity-0'); setTimeout(()=>achModal.classList.add('hidden'), 200); });
+    }
+    if (achClose) {
+        achClose.addEventListener('click', () => { achModal.classList.add('opacity-0'); setTimeout(()=>achModal.classList.add('hidden'), 200); });
+    }
 
     // --- SCORE CHART ---
     const scoreModal = document.getElementById('score-modal');
     const scoreClose = document.getElementById('score-close-btn');
     let chartDataCache = null; let showingWeeklyScore = false; let activeBarIndex = -1;
 
-    scoreService.subscribe((score) => { document.querySelectorAll('.global-score-display').forEach(el => el.textContent = score); });
+    scoreService.subscribe((score) => { 
+        document.querySelectorAll('.global-score-display').forEach(el => el.textContent = score); 
+    });
 
     document.addEventListener('click', (e) => {
         if (e.target.closest('#score-pill')) showScoreChart();
         if (e.target.closest('#home-settings-btn')) openSettings();
         if (e.target.closest('#modal-done-btn')) closeSettings();
         
-        // EDIT BUTTON LOGIC (Preserved)
+        // EDIT BUTTON LOGIC
         if (e.target.closest('.game-edit-btn')) {
             let app = null;
             if (!views.flashcard.classList.contains('hidden')) app = flashcardApp;
@@ -121,10 +146,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if(scoreClose) scoreClose.addEventListener('click', () => { scoreModal.classList.add('opacity-0'); setTimeout(() => scoreModal.classList.add('hidden'), 200); });
 
-    document.getElementById('score-total-toggle').addEventListener('click', () => {
-        showingWeeklyScore = !showingWeeklyScore;
-        updateScoreDisplay();
-    });
+    const scoreTotalToggle = document.getElementById('score-total-toggle');
+    if (scoreTotalToggle) {
+        scoreTotalToggle.addEventListener('click', () => {
+            showingWeeklyScore = !showingWeeklyScore;
+            updateScoreDisplay();
+        });
+    }
 
     function updateScoreDisplay() {
         const label = document.getElementById('score-display-label');
@@ -198,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { container.innerHTML = '<div class="text-red-500 text-sm">Error</div>'; }
     }
 
-    // --- (Rest of standard logic) ---
+    // --- DICTIONARY & OTHER EXISTING LOGIC ---
     const popup = document.getElementById('dictionary-popup');
     const popupContent = document.getElementById('dict-content');
     const popupClose = document.getElementById('dict-close-btn');
@@ -261,19 +289,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const openSettings = () => { loadSettingsToUI(); settingsModal.classList.remove('hidden'); setTimeout(()=>settingsModal.classList.remove('opacity-0'), 10); };
     const closeSettings = () => { settingsModal.classList.add('opacity-0'); setTimeout(()=>settingsModal.classList.add('hidden'), 200); };
     
-    // Bind settings logic
     function loadSettingsToUI() {
         const s = settingsService.get();
         const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
         const setChk = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val; };
-        
-        setVal('target-select', s.targetLang); 
-        setVal('origin-select', s.originLang);
-        setChk('toggle-dark', s.darkMode); 
-        setChk('toggle-audio', s.autoPlay); 
-        setChk('toggle-wait-audio', s.waitForAudio);
+        setVal('target-select', s.targetLang); setVal('origin-select', s.originLang);
+        setChk('toggle-dark', s.darkMode); setChk('toggle-audio', s.autoPlay); setChk('toggle-wait-audio', s.waitForAudio);
         setVal('volume-slider', s.volume !== undefined ? s.volume : 1.0);
-
         setVal('font-size-select', s.fontSize);
         setVal('font-family-select', s.fontFamily);
         setVal('font-weight-select', s.fontWeight);
@@ -303,6 +325,12 @@ document.addEventListener('DOMContentLoaded', () => {
     bindSetting('toggle-quiz-audio', 'quizAnswerAudio'); bindSetting('toggle-quiz-autoplay-correct', 'quizAutoPlayCorrect'); bindSetting('toggle-quiz-double', 'quizDoubleClick');
     bindSetting('toggle-sent-audio', 'sentencesWordAudio');
     bindSetting('toggle-blanks-audio', 'blanksAnswerAudio'); bindSetting('toggle-blanks-double', 'blanksDoubleClick');
+
+    const accordions = [ { btn: 'dict-accordion-btn', content: 'dict-options', arrow: 'accordion-arrow-dict' }, { btn: 'display-accordion-btn', content: 'display-options', arrow: 'accordion-arrow-1' }, { btn: 'quiz-accordion-btn', content: 'quiz-options', arrow: 'accordion-arrow-3' }, { btn: 'sent-accordion-btn', content: 'sent-options', arrow: 'accordion-arrow-sent' }, { btn: 'blanks-accordion-btn', content: 'blanks-options', arrow: 'accordion-arrow-blanks' }, { btn: 'fonts-accordion-btn', content: 'fonts-options', arrow: 'accordion-arrow-fonts' } ];
+    accordions.forEach(acc => {
+        const btn = document.getElementById(acc.btn); const content = document.getElementById(acc.content); const arrow = document.getElementById(acc.arrow);
+        if(btn) btn.addEventListener('click', () => { content.classList.toggle('open'); arrow.classList.toggle('rotate'); });
+    });
 
     async function initApp() {
         try {

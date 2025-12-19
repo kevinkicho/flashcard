@@ -1,4 +1,4 @@
-const CACHE_NAME = 'polyglot-v2';
+const CACHE_NAME = 'polyglot-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -10,7 +10,7 @@ const APP_SHELL = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Caching App Shell');
+      console.log('[SW] Caching App Shell v3');
       return cache.addAll(APP_SHELL);
     })
   );
@@ -37,7 +37,6 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // A. Handle Google Fonts (Cache First, then Network)
-  // We separate this so fonts persist even if you update the app code
   if (url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com') {
     event.respondWith(
       caches.open('polyglot-fonts').then((cache) => {

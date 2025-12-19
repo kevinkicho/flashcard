@@ -2,14 +2,13 @@ import { settingsService } from './settingsService';
 
 class TextService {
     constructor() {
-        this.observer = new ResizeObserver(entries => {
-            window.requestAnimationFrame(() => {
-                for (let entry of entries) {
-                    if (entry.target._fitText) {
-                        this.fitText(entry.target);
-                    }
-                }
-            });
+        // Fix: Use window resize instead of element observer to prevent infinite loops
+        this.resizeTimer = null;
+        window.addEventListener('resize', () => {
+            if (this.resizeTimer) clearTimeout(this.resizeTimer);
+            this.resizeTimer = setTimeout(() => {
+                document.querySelectorAll('[data-fit="true"]').forEach(el => this.fitText(el));
+            }, 100);
         });
     }
 
@@ -21,7 +20,7 @@ class TextService {
             .replace(/_/g, '_<wbr>');               
     }
 
-    // 3. JAPANESE TOKENIZER
+    // 3. JAPANESE TOKENIZER (Phases 1-10 Restored)
     tokenizeJapanese(text, vocab = '', applyPostProcessing = true) {
         if (typeof Intl === 'undefined' || typeof Intl.Segmenter !== 'function') {
             return text.split(''); // Fallback
@@ -191,14 +190,10 @@ class TextService {
         // Helper to split a chunk and append the delimiter to the left side
         const splitAfter = (chunk, delim) => {
             if (!chunk.includes(delim)) return [chunk];
-            if (chunk === delim) return [chunk]; // Don't split just the delimiter
-            
-            // "WordをNext" -> "Wordを", "Next"
-            // "Wordを" -> "Wordを"
+            if (chunk === delim) return [chunk]; 
             const parts = chunk.split(delim);
             const result = [];
             for (let k = 0; k < parts.length; k++) {
-                // If it's not the very last empty split (caused by delimiter at end)
                 if (k < parts.length - 1) {
                     result.push(parts[k] + delim);
                 } else if (parts[k].length > 0) {
@@ -211,9 +206,7 @@ class TextService {
         // Phase 7: Split after '、' and '。'
         let phase7Pass = [];
         processed.forEach(chunk => {
-            // Check comma
             let subChunks = splitAfter(chunk, '、');
-            // Check full stop for each sub-chunk
             let finalChunks = [];
             subChunks.forEach(s => {
                 finalChunks.push(...splitAfter(s, '。'));
@@ -232,20 +225,15 @@ class TextService {
         // Phase 9: Split after 'いつも' and 'とても'
         let phase9Pass = [];
         processed.forEach(chunk => {
-            // We need a regex splitter here to handle multiple keywords
-            // "PartAいつもPartB" -> "PartAいつも", "PartB"
-            // Using a simple replace trick to add a temporary delimiter
             let temp = chunk
                 .replace(/(いつも)/g, '$1\uFFFF')
                 .replace(/(とても)/g, '$1\uFFFF');
-            
             const parts = temp.split('\uFFFF');
             parts.forEach(p => { if(p) phase9Pass.push(p); });
         });
         processed = phase9Pass;
 
         // Phase 10: Split BEFORE 'ちょっと'
-        // "PartAちょっと" -> "PartA", "ちょっと"
         let phase10Pass = [];
         processed.forEach(chunk => {
              let temp = chunk.replace(/(ちょっと)/g, '\uFFFF$1');
@@ -259,7 +247,7 @@ class TextService {
 
     fitText(el) {
         if (!el) return;
-        if (!el._fitText) { el._fitText = true; this.observer.observe(el); }
+        
         const settings = settingsService.get();
         const parent = el.parentElement;
         if (!parent) return;
@@ -285,6 +273,7 @@ class TextService {
         let low = min, high = max, best = min;
         el.style.fontSize = `${high}px`; 
 
+        // Binary search to fit text
         while (low <= high) {
             const mid = Math.floor((low + high) / 2);
             el.style.fontSize = `${mid}px`;
@@ -296,6 +285,7 @@ class TextService {
             else { high = mid - 1; }
         }
         el.style.fontSize = `${best}px`;
+        el.style.visibility = 'visible'; // Ensure it's shown after fitting
     }
 
     getFontFamily(key) {

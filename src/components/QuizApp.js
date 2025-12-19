@@ -70,7 +70,12 @@ export class QuizApp {
 
         const settings = settingsService.get();
 
-        if (settings.quizAnswerAudio || settings.quizDoubleClick) {
+        // Check if this is the SECOND click of a double-click action
+        const isConfirmationClick = (settings.quizDoubleClick && this.selectedAnswerId === id);
+
+        // Only play audio if enabled AND it's NOT the immediate confirmation click (which would cause double audio)
+        // If it is the first click (selection), play audio.
+        if (!isConfirmationClick && (settings.quizAnswerAudio || settings.quizDoubleClick)) {
             audioService.speak(choiceText, settings.targetLang);
         }
 
@@ -83,7 +88,7 @@ export class QuizApp {
                 });
                 el.classList.remove('border-transparent');
                 el.classList.add('border-yellow-400', 'ring-2', 'ring-yellow-400');
-                return; 
+                return; // Stop here, wait for second click
             }
         }
 

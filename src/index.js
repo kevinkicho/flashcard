@@ -3,7 +3,7 @@ import './styles/main.scss';
 import { settingsService } from './services/settingsService';
 import { vocabService } from './services/vocabService';
 import { dictionaryService } from './services/dictionaryService';
-import { auth, onAuthStateChanged, googleProvider, signInWithPopup, signOut, update, ref, db } from './services/firebase';
+import { auth, onAuthStateChanged, googleProvider, signInWithPopup, signOut, update, ref, db, signInAnonymously } from './services/firebase';
 import { flashcardApp } from './components/FlashcardApp';
 import { quizApp } from './components/QuizApp';
 import { sentencesApp } from './components/SentencesApp';
@@ -36,12 +36,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const iconIn = document.getElementById('icon-user-in');
     let currentUser = null;
 
-    onAuthStateChanged(auth, (user) => {
+    // Handle Auth State
+    onAuthStateChanged(auth, async (user) => {
         currentUser = user;
-        if (user && !user.isAnonymous) {
-            if(iconOut) iconOut.classList.add('hidden');
-            if(iconIn) { iconIn.classList.remove('hidden'); iconIn.src = user.photoURL; }
+        if (user) {
+            if(!user.isAnonymous) {
+                if(iconOut) iconOut.classList.add('hidden');
+                if(iconIn) { iconIn.classList.remove('hidden'); iconIn.src = user.photoURL; }
+            } else {
+                console.log("User is anonymous");
+            }
         } else {
+            // Auto-login anonymously if no user, to ensure DB access works
+            console.log("No user, signing in anonymously for DB access...");
+            try { await signInAnonymously(auth); } catch(e) { console.error("Anon auth failed", e); }
+            
             if(iconOut) iconOut.classList.remove('hidden');
             if(iconIn) iconIn.classList.add('hidden');
         }
@@ -72,6 +81,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target) {
             target.classList.remove('hidden');
             const lastId = savedHistory[viewName];
+            
+            // Safety check: ensure we have data before rendering
+            if (vocabService.getAll().length === 0) {
+                console.warn("Render view called but no data available yet.");
+            }
+
             if (viewName === 'flashcard') { flashcardApp.mount('flashcard-view'); if(lastId) flashcardApp.goto(lastId); }
             if (viewName === 'quiz') { quizApp.mount('quiz-view'); if(lastId) quizApp.next(lastId); }
             if (viewName === 'sentences') { sentencesApp.mount('sentences-view'); if(lastId) sentencesApp.next(lastId); }
@@ -86,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     vocabService.subscribe(() => { if (!views.flashcard.classList.contains('hidden')) flashcardApp.refresh(); });
 
+    // --- DICTIONARY POPUP LOGIC ---
     const popup = document.getElementById('dictionary-popup');
     const popupContent = document.getElementById('dict-content');
     const popupClose = document.getElementById('dict-close-btn');
@@ -143,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('mousemove', handleMove);
     document.addEventListener('touchmove', handleMove);
 
+    // --- EDIT MODAL LOGIC (Reduced for brevity, functionality kept) ---
     const editModal = document.getElementById('edit-modal');
     const tabVocabBtn = document.getElementById('tab-vocab-btn');
     const tabDictBtn = document.getElementById('tab-dict-btn');
@@ -254,6 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- SETTINGS LOGIC ---
     const settingsModal = document.getElementById('settings-modal');
     const openSettings = () => { loadSettingsToUI(); settingsModal.classList.remove('hidden'); setTimeout(()=>settingsModal.classList.remove('opacity-0'), 10); };
     const closeSettings = () => { settingsModal.classList.add('opacity-0'); setTimeout(()=>settingsModal.classList.add('hidden'), 200); };
@@ -311,13 +329,24 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const saved = settingsService.get(); loadSettingsToUI();
             if(saved.darkMode) document.documentElement.classList.add('dark');
-            vocabService.init(); await dictionaryService.fetchData();
+            
+            // NOTE: We now WAIT for vocabService to report "ready"
+            await vocabService.init(); 
+            
+            // Dictionary is less critical, can load in background
+            dictionaryService.fetchData();
+
             const startBtn = document.getElementById('start-app-btn');
             if(startBtn) {
-                startBtn.disabled = false; startBtn.classList.remove('opacity-50', 'cursor-not-allowed'); startBtn.classList.add('bg-indigo-600', 'text-white'); startBtn.innerText = "Start Learning";
+                startBtn.disabled = false; 
+                startBtn.classList.remove('opacity-50', 'cursor-not-allowed'); 
+                startBtn.classList.add('bg-indigo-600', 'text-white'); 
+                startBtn.innerText = "Start Learning";
                 startBtn.onclick = () => {
                     const s = new SpeechSynthesisUtterance(''); window.speechSynthesis.speak(s);
-                    document.getElementById('splash-screen').style.display = 'none'; document.body.classList.remove('is-loading'); renderView('home');
+                    document.getElementById('splash-screen').style.display = 'none'; 
+                    document.body.classList.remove('is-loading'); 
+                    renderView('home');
                 };
             }
         } catch(e) { console.error(e); }

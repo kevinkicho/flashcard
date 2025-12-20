@@ -8,6 +8,28 @@
 </head>
 <body class="is-loading transition-colors duration-300 bg-gray-50 text-gray-900 dark:bg-dark-bg dark:text-dark-text">
     
+    <div id="achievement-popup" class="hidden fixed top-20 right-4 z-[100] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-4 flex items-center gap-4 border-2 border-yellow-400 animate-bounce transition-all">
+        <div class="text-4xl">🏆</div>
+        <div>
+            <h4 id="ach-popup-title" class="font-black text-indigo-600 dark:text-white text-sm">Title</h4>
+            <p id="ach-popup-desc" class="text-[10px] text-gray-500 dark:text-gray-400">Description</p>
+        </div>
+        <div id="ach-popup-pts" class="text-xl font-black text-yellow-500">+0</div>
+    </div>
+
+    <div id="ach-list-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-opacity duration-200 opacity-0">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-md h-[70vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden p-6 border border-gray-100 dark:border-gray-800">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-black text-orange-500 flex items-center gap-2"><span>🏆</span> Achievements</h3>
+                <button id="ach-list-close" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div id="ach-list-content" class="flex-1 overflow-y-auto space-y-3 custom-scrollbar p-1">
+                </div>
+        </div>
+    </div>
+
     <div id="score-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-opacity duration-200 opacity-0"><div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-3xl shadow-2xl flex flex-col overflow-hidden p-6 border border-gray-100 dark:border-gray-800"><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-black text-indigo-600 dark:text-indigo-400">Weekly Progress</h3><button id="score-close-btn" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div><div class="relative h-48 w-full flex flex-col"><div id="chart-tooltip-area" class="h-8 w-full flex justify-center items-center mb-2 pointer-events-none"><span class="text-xs text-gray-400 italic">Click bars for details</span></div><div class="flex justify-between items-end flex-1 gap-3 pb-2" id="score-chart-container"><div class="w-full h-full flex items-center justify-center text-gray-400 text-sm">Loading...</div></div></div><div class="mt-6 text-center cursor-pointer hover:opacity-80 transition-opacity" id="score-total-toggle"><p id="score-display-label" class="text-xs text-gray-400 uppercase font-bold tracking-widest mb-1">Today's Score</p><p id="modal-today-score" class="text-4xl font-black text-gray-800 dark:text-white global-score-display">0</p></div></div></div>
     <div id="edit-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-opacity duration-200"><div class="bg-white dark:bg-gray-900 w-full max-w-2xl h-[85vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden"><div class="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50"><div class="flex gap-4"><button id="tab-vocab-btn" class="px-4 py-2 rounded-xl font-bold bg-indigo-600 text-white shadow-lg transition-all">Vocab</button><button id="tab-dict-btn" class="px-4 py-2 rounded-xl font-bold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 transition-all">Dictionary</button></div><button id="edit-close-btn" class="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-red-100 text-gray-500 hover:text-red-500"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div><div class="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-6"><div id="edit-tab-vocab" class="space-y-4"><div class="flex justify-between items-center mb-4"><h3 class="text-lg font-black text-gray-400 uppercase">Edit Vocabulary</h3><span id="edit-vocab-id" class="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded font-mono">ID: 0</span></div><div id="edit-vocab-fields" class="space-y-6"></div><button id="btn-save-vocab" class="w-full py-4 bg-green-500 hover:bg-green-600 text-white font-black rounded-xl shadow-lg mt-4 disabled:opacity-50 disabled:cursor-not-allowed">SAVE VOCAB</button></div><div id="edit-tab-dict" class="hidden space-y-6"><div class="flex justify-between items-center"><h3 class="text-lg font-black text-gray-400 uppercase">Dictionary Entries</h3><button id="btn-add-dict" class="hidden px-3 py-1 bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold uppercase hover:bg-indigo-200">+ New Entry</button></div><div id="edit-dict-list" class="space-y-6"></div></div></div></div></div>
 

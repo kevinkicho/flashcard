@@ -15,19 +15,30 @@ import { listeningApp } from './components/ListeningApp';
 import { matchApp } from './components/MatchApp'; 
 import { constructorApp } from './components/ConstructorApp';
 import { writingApp } from './components/WritingApp';
-import { trueFalseApp } from './components/TrueFalseApp'; // NEW IMPORT
+import { trueFalseApp } from './components/TrueFalseApp';
+import { reverseApp } from './components/ReverseApp';
 import { audioService } from './services/audioService';
 import { textService } from './services/textService';
 
 window.wasLongPress = false;
 
-if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js'); }); }
-let savedHistory = {}; try { savedHistory = JSON.parse(localStorage.getItem('polyglot_history') || '{}'); } catch (e) {}
-window.saveGameHistory = (game, id) => { if (id) { savedHistory[game] = id; localStorage.setItem('polyglot_history', JSON.stringify(savedHistory)); } };
+if ('serviceWorker' in navigator) { 
+    window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW failed', err)); }); 
+}
+
+let savedHistory = {}; 
+try { savedHistory = JSON.parse(localStorage.getItem('polyglot_history') || '{}'); } catch (e) {}
+window.saveGameHistory = (game, id) => { 
+    if (id) { 
+        savedHistory[game] = id; 
+        localStorage.setItem('polyglot_history', JSON.stringify(savedHistory)); 
+    } 
+};
 
 document.addEventListener('DOMContentLoaded', () => {
-    try { scoreService.init(); } catch(e){}
+    try { scoreService.init(); } catch(e){ console.error("Score Init Error", e); }
 
+    // Safely get views. If an ID is missing in HTML, it will be null, but we will handle that.
     const views = { 
         home: document.getElementById('main-menu'), 
         flashcard: document.getElementById('flashcard-view'), 
@@ -38,9 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
         match: document.getElementById('match-view'),
         constructor: document.getElementById('constructor-view'),
         writing: document.getElementById('writing-view'),
-        truefalse: document.getElementById('truefalse-view') // NEW VIEW
+        truefalse: document.getElementById('truefalse-view'),
+        reverse: document.getElementById('reverse-view')
     };
-    const iconOut = document.getElementById('icon-user-out'); const iconIn = document.getElementById('icon-user-in'); 
+
+    const iconOut = document.getElementById('icon-user-out'); 
+    const iconIn = document.getElementById('icon-user-in'); 
     let currentUser = null;
 
     onAuthStateChanged(auth, async (user) => {
@@ -94,8 +108,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 startBtn.classList.add('bg-indigo-600', 'text-white'); 
                 startBtn.innerText = "Start Learning";
                 startBtn.onclick = () => {
-                    const s = new SpeechSynthesisUtterance(''); window.speechSynthesis.speak(s);
-                    document.getElementById('splash-screen').style.display = 'none'; 
+                    // Initialize audio context on user gesture
+                    const s = new SpeechSynthesisUtterance(''); 
+                    window.speechSynthesis.speak(s);
+                    
+                    const splash = document.getElementById('splash-screen');
+                    if(splash) splash.style.display = 'none'; 
                     document.body.classList.remove('is-loading'); 
                     renderView('home');
                 };
@@ -116,28 +134,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    document.getElementById('user-login-btn').addEventListener('click', async () => { if (currentUser && !currentUser.isAnonymous) { if(confirm("Log out?")) await signOut(auth); } else { try { await signInWithPopup(auth, googleProvider); } catch(e){} } });
-    function updateEditPermissions() { const isAdmin = currentUser && currentUser.email === 'kevinkicho@gmail.com'; document.querySelectorAll('#btn-save-vocab, .btn-save-dict, #btn-add-dict').forEach(btn => { if(btn.id === 'btn-add-dict') btn.style.display = isAdmin ? 'block' : 'none'; else { btn.disabled = !isAdmin; btn.style.display = isAdmin ? 'block' : 'none'; } }); }
+    // SAFE EVENT LISTENER: Login
+    const loginBtn = document.getElementById('user-login-btn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', async () => { 
+            if (currentUser && !currentUser.isAnonymous) { 
+                if(confirm("Log out?")) await signOut(auth); 
+            } else { 
+                try { await signInWithPopup(auth, googleProvider); } catch(e){} 
+            } 
+        });
+    }
+
+    function updateEditPermissions() { 
+        const isAdmin = currentUser && currentUser.email === 'kevinkicho@gmail.com'; 
+        const btns = document.querySelectorAll('#btn-save-vocab, .btn-save-dict, #btn-add-dict');
+        btns.forEach(btn => { 
+            if(btn.id === 'btn-add-dict') btn.style.display = isAdmin ? 'block' : 'none'; 
+            else { btn.disabled = !isAdmin; btn.style.display = isAdmin ? 'block' : 'none'; } 
+        }); 
+    }
+
     function renderView(viewName) { 
         audioService.stop(); 
-        if (viewName === 'home') document.body.classList.remove('game-mode'); else document.body.classList.add('game-mode'); 
-        Object.values(views).forEach(el => el.classList.add('hidden')); 
+        if (viewName === 'home') document.body.classList.remove('game-mode'); 
+        else document.body.classList.add('game-mode'); 
+        
+        // SAFE VIEW HIDING
+        Object.values(views).forEach(el => { if(el) el.classList.add('hidden'); }); 
+        
         const target = views[viewName]; 
         if (target) { 
             target.classList.remove('hidden'); 
             const lastId = savedHistory[viewName]; 
-            if (viewName === 'flashcard') { flashcardApp.mount('flashcard-view'); if(lastId) flashcardApp.goto(lastId); } 
-            if (viewName === 'quiz') { quizApp.mount('quiz-view'); if(lastId) quizApp.next(lastId); } 
-            if (viewName === 'sentences') { sentencesApp.mount('sentences-view'); if(lastId) sentencesApp.next(lastId); } 
-            if (viewName === 'blanks') { blanksApp.mount('blanks-view'); if(lastId) blanksApp.next(lastId); }
-            if (viewName === 'listening') { listeningApp.mount('listening-view'); if(lastId) listeningApp.next(lastId); }
-            if (viewName === 'match') { matchApp.mount('match-view'); }
-            if (viewName === 'constructor') { constructorApp.mount('constructor-view'); }
-            if (viewName === 'writing') { writingApp.mount('writing-view'); }
-            if (viewName === 'truefalse') { trueFalseApp.mount('truefalse-view'); } // NEW MOUNT
+            
+            // Only mount if the view container exists
+            if (viewName === 'flashcard' && views.flashcard) { flashcardApp.mount('flashcard-view'); if(lastId) flashcardApp.goto(lastId); } 
+            if (viewName === 'quiz' && views.quiz) { quizApp.mount('quiz-view'); if(lastId) quizApp.next(lastId); } 
+            if (viewName === 'sentences' && views.sentences) { sentencesApp.mount('sentences-view'); if(lastId) sentencesApp.next(lastId); } 
+            if (viewName === 'blanks' && views.blanks) { blanksApp.mount('blanks-view'); if(lastId) blanksApp.next(lastId); }
+            if (viewName === 'listening' && views.listening) { listeningApp.mount('listening-view'); if(lastId) listeningApp.next(lastId); }
+            if (viewName === 'match' && views.match) { matchApp.mount('match-view'); }
+            if (viewName === 'constructor' && views.constructor) { constructorApp.mount('constructor-view'); }
+            if (viewName === 'writing' && views.writing) { writingApp.mount('writing-view'); }
+            if (viewName === 'truefalse' && views.truefalse) { trueFalseApp.mount('truefalse-view'); }
+            if (viewName === 'reverse' && views.reverse) { reverseApp.mount('reverse-view'); }
         } 
     }
-    const bindNav = (id, view) => { const btn = document.getElementById(id); if(btn) btn.addEventListener('click', () => { history.pushState({view}, '', `#${view}`); renderView(view); }); };
+
+    const bindNav = (id, view) => { 
+        const btn = document.getElementById(id); 
+        if(btn) btn.addEventListener('click', () => { 
+            history.pushState({view}, '', `#${view}`); 
+            renderView(view); 
+        }); 
+    };
+
     bindNav('menu-flashcard-btn', 'flashcard'); 
     bindNav('menu-quiz-btn', 'quiz'); 
     bindNav('menu-sentences-btn', 'sentences'); 
@@ -146,11 +198,16 @@ document.addEventListener('DOMContentLoaded', () => {
     bindNav('menu-match-btn', 'match'); 
     bindNav('menu-constructor-btn', 'constructor');
     bindNav('menu-writing-btn', 'writing');
-    bindNav('menu-truefalse-btn', 'truefalse'); // NEW BIND
+    bindNav('menu-truefalse-btn', 'truefalse');
+    bindNav('menu-reverse-btn', 'reverse');
 
     window.addEventListener('popstate', (e) => renderView(e.state ? e.state.view : 'home'));
     window.addEventListener('router:home', () => history.back());
-    vocabService.subscribe(() => { if (!views.flashcard.classList.contains('hidden')) flashcardApp.refresh(); });
+    
+    // SAFE SUBSCRIPTION
+    vocabService.subscribe(() => { 
+        if (views.flashcard && !views.flashcard.classList.contains('hidden')) flashcardApp.refresh(); 
+    });
 
     let resizeTimer;
     window.addEventListener('resize', () => {
@@ -160,24 +217,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 100);
     });
 
+    // Achievement Popup Logic
     const achPopup = document.getElementById('achievement-popup');
     window.addEventListener('achievement:unlocked', (e) => {
         const ach = e.detail;
         const t = document.getElementById('ach-popup-title');
         const d = document.getElementById('ach-popup-desc');
         const p = document.getElementById('ach-popup-pts');
-        if(!t||!d||!p) return;
+        if(!t||!d||!p||!achPopup) return;
         t.textContent = ach.title; d.textContent = ach.desc; p.textContent = ach.points;
         achPopup.classList.remove('hidden');
         setTimeout(() => achPopup.classList.add('hidden'), 4000);
     });
 
+    // SAFE EVENT LISTENER: Achievement Button
     const achBtn = document.getElementById('ach-btn');
     if(achBtn) achBtn.addEventListener('click', async () => {
         const achModal = document.getElementById('ach-list-modal');
         const achContent = document.getElementById('ach-list-content');
+        if(!achModal || !achContent) return;
+        
         achModal.classList.remove('hidden'); setTimeout(()=>achModal.classList.remove('opacity-0'),10);
         achContent.innerHTML = 'Loading...';
+        
         const unlockedMap = currentUser ? await achievementService.getUserAchievements(currentUser.uid) : {};
         let html = '';
         const sorted = [...ACHIEVEMENTS].sort((a,b) => {
@@ -192,29 +254,40 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         achContent.innerHTML = html;
     });
-    document.getElementById('ach-list-close').addEventListener('click', ()=>{ document.getElementById('ach-list-modal').classList.add('opacity-0'); setTimeout(()=>document.getElementById('ach-list-modal').classList.add('hidden'),200); });
 
+    // SAFE EVENT LISTENER: Close Achievements
+    const achClose = document.getElementById('ach-list-close');
+    if (achClose) {
+        achClose.addEventListener('click', ()=>{ 
+            const m = document.getElementById('ach-list-modal');
+            if(m) { m.classList.add('opacity-0'); setTimeout(()=>m.classList.add('hidden'),200); }
+        });
+    }
+
+    // Chart / Score Logic
     const scoreModal = document.getElementById('score-modal');
     const scoreClose = document.getElementById('score-close-btn');
     let chartDataCache=null, showingWeeklyScore=false;
     
     scoreService.subscribe((s) => { document.querySelectorAll('.global-score-display').forEach(el=>el.textContent=s); });
     
+    // Global Click Handler delegation (safe by default)
     document.addEventListener('click', (e) => {
         if(e.target.closest('#score-pill')) showScoreChart();
         if(e.target.closest('#home-settings-btn')) openSettings();
         if(e.target.closest('#modal-done-btn')) closeSettings();
         if (e.target.closest('.game-edit-btn')) {
             let app = null;
-            if (!views.flashcard.classList.contains('hidden')) app = flashcardApp;
-            if (!views.quiz.classList.contains('hidden')) app = quizApp;
-            if (!views.sentences.classList.contains('hidden')) app = sentencesApp;
-            if (!views.blanks.classList.contains('hidden')) app = blanksApp;
-            if (!views.listening.classList.contains('hidden')) app = listeningApp;
-            // Note: Constructor/Writing/TrueFalse usually don't have edit buttons in this design, but logic is here:
-            if (!views.constructor.classList.contains('hidden')) app = constructorApp;
-            if (!views.writing.classList.contains('hidden')) app = writingApp;
-            if (!views.truefalse.classList.contains('hidden')) app = trueFalseApp;
+            // Only check app if view container exists and is visible
+            if (views.flashcard && !views.flashcard.classList.contains('hidden')) app = flashcardApp;
+            if (views.quiz && !views.quiz.classList.contains('hidden')) app = quizApp;
+            if (views.sentences && !views.sentences.classList.contains('hidden')) app = sentencesApp;
+            if (views.blanks && !views.blanks.classList.contains('hidden')) app = blanksApp;
+            if (views.listening && !views.listening.classList.contains('hidden')) app = listeningApp;
+            if (views.constructor && !views.constructor.classList.contains('hidden')) app = constructorApp;
+            if (views.writing && !views.writing.classList.contains('hidden')) app = writingApp;
+            if (views.truefalse && !views.truefalse.classList.contains('hidden')) app = trueFalseApp;
+            if (views.reverse && !views.reverse.classList.contains('hidden')) app = reverseApp;
 
             if (app) {
                 let item = app.currentData && (app.currentData.target || app.currentData.item) 
@@ -224,10 +297,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (item) {
                     currentEditId = item.id;
                     const fullData = vocabService.getAll().find(v => v.id == item.id);
-                    document.getElementById('edit-modal').classList.remove('hidden'); setTimeout(()=>document.getElementById('edit-modal').classList.remove('opacity-0'), 10);
-                    const scrollContainer = document.querySelector('#edit-modal .flex-1.overflow-y-auto'); if(scrollContainer) scrollContainer.scrollTop = 0;
+                    const em = document.getElementById('edit-modal');
+                    if(em) {
+                        em.classList.remove('hidden'); 
+                        setTimeout(()=>em.classList.remove('opacity-0'), 10);
+                        const scrollContainer = em.querySelector('.flex-1.overflow-y-auto'); if(scrollContainer) scrollContainer.scrollTop = 0;
+                    }
                     switchEditTab('vocab');
-                    document.getElementById('edit-vocab-id').textContent = `ID: ${item.id}`;
+                    const vid = document.getElementById('edit-vocab-id'); if(vid) vid.textContent = `ID: ${item.id}`;
                     renderVocabEditFields(fullData);
                     const scanText = (fullData.ja||'') + (fullData.ja_ex||'') + (fullData.zh||'') + (fullData.ko||'');
                     populateDictionaryEdit(scanText);
@@ -236,14 +313,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-    if(scoreClose) scoreClose.addEventListener('click', ()=>{ scoreModal.classList.add('opacity-0'); setTimeout(()=>scoreModal.classList.add('hidden'),200); });
+
+    if(scoreClose) scoreClose.addEventListener('click', ()=>{ if(scoreModal) { scoreModal.classList.add('opacity-0'); setTimeout(()=>scoreModal.classList.add('hidden'),200); }});
+    
     const scoreTotalToggle = document.getElementById('score-total-toggle');
     if(scoreTotalToggle) scoreTotalToggle.addEventListener('click', ()=>{ showingWeeklyScore=!showingWeeklyScore; updateScoreDisplay(); });
     
     function updateScoreDisplay() {
         const label = document.getElementById('score-display-label');
         const val = document.getElementById('modal-today-score');
-        if (!chartDataCache) return;
+        if (!chartDataCache || !label || !val) return;
         if (showingWeeklyScore) {
             const total = chartDataCache.reduce((sum, d) => sum + d.total, 0);
             label.textContent = "Weekly Total"; val.textContent = total;
@@ -255,11 +334,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function showScoreChart() {
+        if(!scoreModal) return;
         scoreModal.classList.remove('hidden'); 
         setTimeout(()=>scoreModal.classList.remove('opacity-0'), 10);
         const container = document.getElementById('score-chart-container');
         const tooltipArea = document.getElementById('chart-tooltip-area');
-        container.innerHTML = '<div class="flex justify-center items-center h-full text-gray-500">Loading...</div>';
+        if(container) container.innerHTML = '<div class="flex justify-center items-center h-full text-gray-500">Loading...</div>';
 
         const curr = new Date(); 
         const day = curr.getDay() || 7; 
@@ -286,11 +366,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
             chartDataCache = weekDates.map((date, i) => {
                 const d = data[date] || {};
-                // Include 'wr' (writing) and 'tf' (truefalse) in totals
                 return { 
                     dateStr: date, label: dayLabels[i], 
-                    fc: d.flashcard || 0, qz: d.quiz || 0, st: d.sentences || 0, bl: d.blanks || 0, wr: d.writing || 0, tf: d.truefalse || 0,
-                    total: (d.flashcard||0) + (d.quiz||0) + (d.sentences||0) + (d.blanks||0) + (d.writing||0) + (d.truefalse||0) 
+                    fc: d.flashcard || 0, qz: d.quiz || 0, st: d.sentences || 0, bl: d.blanks || 0, wr: d.writing || 0, tf: d.truefalse || 0, rv: d.reverse || 0,
+                    total: (d.flashcard||0) + (d.quiz||0) + (d.sentences||0) + (d.blanks||0) + (d.writing||0) + (d.truefalse||0) + (d.reverse||0) 
                 };
             });
             const maxScore = Math.max(...chartDataCache.map(s => s.total), 50);
@@ -303,47 +382,51 @@ document.addEventListener('DOMContentLoaded', () => {
                 html += `
                 <div class="chart-bar-container group relative" data-idx="${idx}">
                     <div class="chart-bar flex-col-reverse border-2 border-white dark:border-gray-700 shadow-sm" style="height: ${heightPct}%;">
-                        ${s.fc > 0 ? `<div style="height:15%;" class="flex-1 w-full bg-indigo-500"></div>` : ''}
-                        ${s.qz > 0 ? `<div style="height:15%;" class="flex-1 w-full bg-purple-500"></div>` : ''}
-                        ${s.st > 0 ? `<div style="height:15%;" class="flex-1 w-full bg-pink-500"></div>` : ''}
-                        ${s.bl > 0 ? `<div style="height:15%;" class="flex-1 w-full bg-teal-500"></div>` : ''}
-                        ${s.wr > 0 ? `<div style="height:15%;" class="flex-1 w-full bg-cyan-500"></div>` : ''}
-                        ${s.tf > 0 ? `<div style="height:15%;" class="flex-1 w-full bg-orange-500"></div>` : ''}
+                        ${s.fc > 0 ? `<div style="height:12%;" class="flex-1 w-full bg-indigo-500"></div>` : ''}
+                        ${s.qz > 0 ? `<div style="height:12%;" class="flex-1 w-full bg-purple-500"></div>` : ''}
+                        ${s.st > 0 ? `<div style="height:12%;" class="flex-1 w-full bg-pink-500"></div>` : ''}
+                        ${s.bl > 0 ? `<div style="height:12%;" class="flex-1 w-full bg-teal-500"></div>` : ''}
+                        ${s.wr > 0 ? `<div style="height:12%;" class="flex-1 w-full bg-cyan-500"></div>` : ''}
+                        ${s.tf > 0 ? `<div style="height:12%;" class="flex-1 w-full bg-orange-500"></div>` : ''}
+                        ${s.rv > 0 ? `<div style="height:12%;" class="flex-1 w-full bg-indigo-400"></div>` : ''}
                     </div>
                     <span class="chart-label ${labelColor}">${s.label.charAt(0)}</span>
                 </div>`;
             });
-            container.innerHTML = html;
-            updateScoreDisplay();
+            if(container) {
+                container.innerHTML = html;
+                updateScoreDisplay();
 
-            const showTooltip = (idx) => {
-                const s = chartDataCache[idx];
-                tooltipArea.innerHTML = `
-                    <div class="flex gap-2 text-xs font-bold items-center flex-wrap justify-center">
-                       <span class="text-gray-500 dark:text-gray-300 uppercase">${s.label}</span>
-                       <span class="text-gray-800 dark:text-white border-l border-gray-300 pl-2">Tot: ${s.total}</span>
-                    </div>
-                 `;
-            };
-            
-            container.querySelectorAll('.chart-bar-container').forEach(el => {
-                el.addEventListener('click', (e) => {
-                    e.stopPropagation(); 
-                    container.querySelectorAll('.chart-bar').forEach(b => b.classList.remove('ring-2', 'ring-indigo-400'));
-                    el.querySelector('.chart-bar').classList.add('ring-2', 'ring-indigo-400');
-                    showTooltip(el.dataset.idx);
+                const showTooltip = (idx) => {
+                    const s = chartDataCache[idx];
+                    if(tooltipArea) tooltipArea.innerHTML = `
+                        <div class="flex gap-2 text-xs font-bold items-center flex-wrap justify-center">
+                        <span class="text-gray-500 dark:text-gray-300 uppercase">${s.label}</span>
+                        <span class="text-gray-800 dark:text-white border-l border-gray-300 pl-2">Tot: ${s.total}</span>
+                        </div>
+                    `;
+                };
+                
+                container.querySelectorAll('.chart-bar-container').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                        e.stopPropagation(); 
+                        container.querySelectorAll('.chart-bar').forEach(b => b.classList.remove('ring-2', 'ring-indigo-400'));
+                        el.querySelector('.chart-bar').classList.add('ring-2', 'ring-indigo-400');
+                        showTooltip(el.dataset.idx);
+                    });
                 });
-            });
+            }
 
         } catch (e) { 
             console.error("Chart Render Error:", e);
-            container.innerHTML = `<div class="text-red-500 p-4 text-center text-xs">Error:<br>${e.message}</div>`; 
+            if(container) container.innerHTML = `<div class="text-red-500 p-4 text-center text-xs">Error:<br>${e.message}</div>`; 
         }
     }
 
     const settingsModal = document.getElementById('settings-modal');
-    const openSettings = () => { loadSettingsToUI(); settingsModal.classList.remove('hidden'); setTimeout(()=>settingsModal.classList.remove('opacity-0'), 10); };
-    const closeSettings = () => { settingsModal.classList.add('opacity-0'); setTimeout(()=>settingsModal.classList.add('hidden'), 200); };
+    const openSettings = () => { if(settingsModal){ loadSettingsToUI(); settingsModal.classList.remove('hidden'); setTimeout(()=>settingsModal.classList.remove('opacity-0'), 10); }};
+    const closeSettings = () => { if(settingsModal){ settingsModal.classList.add('opacity-0'); setTimeout(()=>settingsModal.classList.add('hidden'), 200); }};
+    
     function loadSettingsToUI() {
         const s = settingsService.get();
         const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
@@ -359,7 +442,15 @@ document.addEventListener('DOMContentLoaded', () => {
         setChk('toggle-sent-anim', s.sentencesWinAnim !== false); 
         setChk('toggle-click-audio', s.clickAudio !== false); 
     }
-    function bindSetting(id, key, cb) { const el = document.getElementById(id); if(el) el.addEventListener('change', (e) => { settingsService.set(key, e.target.type==='checkbox'?e.target.checked:e.target.value); if(cb) cb(); }); }
+    
+    function bindSetting(id, key, cb) { 
+        const el = document.getElementById(id); 
+        if(el) el.addEventListener('change', (e) => { 
+            settingsService.set(key, e.target.type==='checkbox'?e.target.checked:e.target.value); 
+            if(cb) cb(); 
+        }); 
+    }
+    
     bindSetting('target-select', 'targetLang', ()=>flashcardApp.refresh());
     bindSetting('origin-select', 'originLang', ()=>flashcardApp.refresh());
     bindSetting('toggle-dark', 'darkMode', () => document.documentElement.classList.toggle('dark'));
@@ -385,14 +476,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabDict = document.getElementById('edit-tab-dict');
     let currentEditId = null;
     function switchEditTab(tab) {
+        if(!tabVocab || !tabDict || !tabVocabBtn || !tabDictBtn) return;
         if (tab === 'vocab') { tabVocab.classList.remove('hidden'); tabDict.classList.add('hidden'); tabVocabBtn.classList.replace('bg-gray-200', 'bg-indigo-600'); tabVocabBtn.classList.replace('text-gray-600', 'text-white'); tabDictBtn.classList.replace('bg-indigo-600', 'bg-gray-200'); tabDictBtn.classList.replace('text-white', 'text-gray-600'); } 
         else { tabVocab.classList.add('hidden'); tabDict.classList.remove('hidden'); tabDictBtn.classList.replace('bg-gray-200', 'bg-indigo-600'); tabDictBtn.classList.replace('text-gray-600', 'text-white'); tabVocabBtn.classList.replace('bg-indigo-600', 'bg-gray-200'); tabVocabBtn.classList.replace('text-white', 'text-gray-600'); }
     }
     if(tabVocabBtn) tabVocabBtn.addEventListener('click', () => switchEditTab('vocab'));
     if(tabDictBtn) tabDictBtn.addEventListener('click', () => switchEditTab('dict'));
-    document.getElementById('edit-close-btn').addEventListener('click', () => { editModal.classList.add('opacity-0'); setTimeout(()=>editModal.classList.add('hidden'), 200); });
+    
+    const ec = document.getElementById('edit-close-btn');
+    if(ec) ec.addEventListener('click', () => { if(editModal){ editModal.classList.add('opacity-0'); setTimeout(()=>editModal.classList.add('hidden'), 200); }});
+
     function populateDictionaryEdit(textToScan) {
         const listContainer = document.getElementById('edit-dict-list');
+        if(!listContainer) return;
         listContainer.innerHTML = '<div class="text-center text-gray-400 py-4">Scanning...</div>';
         const entries = dictionaryService.lookupText(textToScan);
         listContainer.innerHTML = '';
@@ -418,8 +514,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+
     function renderVocabEditFields(vocabData) {
-        const container = document.getElementById('edit-vocab-fields'); container.innerHTML = '';
+        const container = document.getElementById('edit-vocab-fields'); 
+        if(!container) return;
+        container.innerHTML = '';
         const languages = [ { code: 'en', label: 'English', extra: [] }, { code: 'ja', label: 'Japanese', extra: ['furi', 'roma'] }, { code: 'zh', label: 'Chinese', extra: ['pin'] }, { code: 'ko', label: 'Korean', extra: ['roma'] }, { code: 'ru', label: 'Russian', extra: ['tr'] }, { code: 'de', label: 'German', extra: [] }, { code: 'fr', label: 'French', extra: [] }, { code: 'es', label: 'Spanish', extra: [] }, { code: 'it', label: 'Italian', extra: [] }, { code: 'pt', label: 'Portuguese', extra: [] } ];
         languages.forEach(lang => {
             const vocabVal = vocabData[lang.code] || '';
@@ -434,6 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
             container.insertAdjacentHTML('beforeend', html);
         });
     }
+
     const btnSaveVocab = document.getElementById('btn-save-vocab');
     if(btnSaveVocab) {
         btnSaveVocab.addEventListener('click', async () => {

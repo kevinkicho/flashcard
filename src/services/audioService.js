@@ -3,100 +3,52 @@ import { settingsService } from './settingsService';
 class AudioService {
     constructor() {
         this.synth = window.speechSynthesis;
-        this.currentUtterance = null;
-        this.checkTimer = null;
+        this.utterance = null;
     }
 
     stop() {
-        if (this.synth) {
+        if (this.synth.speaking) {
             this.synth.cancel();
-            if (this.checkTimer) clearInterval(this.checkTimer);
         }
     }
 
-    cleanText(text, lang) {
-        if (!text) return "";
-        let cleaned = text;
-
-        // Japanese Special Handling: Stop at ANY separator dot
-        // \u30FB (・), \uFF65 (･), \u2022 (•), . (dot) if surrounded by kanji/kana might be risky but safe for vocab list
-        if (lang && (lang === 'ja' || lang === 'ja-JP')) {
-            // Split on Middle Dot (Full/Half), Bullet, or slash
-            const parts = cleaned.split(/[\u30FB\uFF65\u2022\/]/);
-            if (parts.length > 0) {
-                cleaned = parts[0];
-            }
-        }
-
-        return cleaned
-            .replace(/[。、，．！？?.,!「」『』()（）]/g, ' ') 
-            .replace(/_+/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
-
-    speak(text, lang = 'en') {
-        return new Promise((resolve) => {
-            if (!this.synth || !text) {
-                resolve();
-                return;
-            }
-
-            const safeText = this.cleanText(text, lang);
-            if (!safeText) {
-                resolve();
-                return;
-            }
-
+    speak(text, lang) {
+        return new Promise((resolve, reject) => {
             this.stop();
 
-            const utterance = new SpeechSynthesisUtterance(safeText);
-            utterance.lang = this.formatLang(lang);
+            if (!text) {
+                resolve();
+                return;
+            }
+
+            // JAPANESE FIX: Stop reading at special characters
+            if (lang === 'ja') {
+                // Split by comma, slash, parenthesis (full/half width), etc.
+                const splitters = /[、,，/／(（[【<＜]/;
+                text = text.split(splitters)[0];
+            }
+
+            const u = new SpeechSynthesisUtterance(text);
             
-            // Apply Global Volume
-            const volume = settingsService.get().volume;
-            utterance.volume = (volume !== undefined) ? Number(volume) : 1.0;
-            
-            let hasResolved = false;
-            const finish = () => {
-                if (!hasResolved) {
-                    hasResolved = true;
-                    this.currentUtterance = null;
-                    if (this.checkTimer) clearInterval(this.checkTimer);
-                    resolve();
-                }
+            // Map our app's lang codes to BCP 47 tags
+            const langMap = {
+                'en': 'en-US', 'ja': 'ja-JP', 'ko': 'ko-KR', 'zh': 'zh-CN',
+                'ru': 'ru-RU', 'de': 'de-DE', 'fr': 'fr-FR', 'es': 'es-ES',
+                'it': 'it-IT', 'pt': 'pt-PT'
             };
 
-            utterance.onend = finish;
-            utterance.onerror = finish;
+            u.lang = langMap[lang] || 'en-US';
+            
+            // Rate/Volume settings
+            const settings = settingsService.get();
+            u.volume = settings.volume !== undefined ? settings.volume : 1.0;
+            u.rate = 1.0; // Default rate
 
-            this.currentUtterance = utterance;
+            u.onend = () => resolve();
+            u.onerror = (e) => resolve(); // Resolve anyway to not block app
 
-            // Safety Timeout
-            const safeTimeout = (safeText.length * 200) + 2000; 
-            setTimeout(finish, safeTimeout);
-
-            this.synth.speak(utterance);
-
-            setTimeout(() => {
-                if (!hasResolved) {
-                    this.checkTimer = setInterval(() => {
-                        if (!this.synth.speaking && !this.synth.pending) {
-                            finish();
-                        }
-                    }, 500);
-                }
-            }, 100);
+            this.synth.speak(u);
         });
-    }
-
-    formatLang(lang) {
-        const map = {
-            'en': 'en-US', 'ja': 'ja-JP', 'zh': 'zh-CN', 'ko': 'ko-KR',
-            'es': 'es-ES', 'fr': 'fr-FR', 'de': 'de-DE', 'it': 'it-IT',
-            'ru': 'ru-RU', 'pt': 'pt-BR'
-        };
-        return map[lang] || lang;
     }
 }
 

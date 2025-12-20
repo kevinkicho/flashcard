@@ -70,8 +70,10 @@ export class ConstructorApp {
         const c = this.charPool[poolIdx];
         if (c.used) return;
 
-        // NEW: Play Audio on Click
-        audioService.speak(c.char, settingsService.get().targetLang);
+        // NEW: Audio on click
+        if(settingsService.get().clickAudio !== false) {
+            audioService.speak(c.char, settingsService.get().targetLang);
+        }
 
         this.builtChars.push(poolIdx);
         c.used = true;
@@ -138,9 +140,9 @@ export class ConstructorApp {
             </div>
 
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-lg mx-auto flex flex-col gap-6">
-                <div id="const-question-box" class="bg-white dark:bg-dark-card p-4 rounded-3xl shadow-sm text-center border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform hover:border-emerald-200 group flex flex-col h-32 justify-center items-center">
+                <div id="const-question-box" class="bg-white dark:bg-dark-card p-4 rounded-3xl shadow-sm border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform hover:border-emerald-200 group flex flex-col h-32 justify-center items-center">
                     <span class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Build</span>
-                    <h2 class="font-bold text-gray-800 dark:text-white w-full text-center flex-1 flex items-center justify-center" data-fit="true">${originText}</h2>
+                    <h2 class="font-bold text-gray-800 dark:text-white w-full text-center flex-1 flex items-center justify-center whitespace-nowrap" data-fit="true">${originText}</h2>
                 </div>
 
                 <div id="const-slots" class="flex flex-wrap justify-center gap-2 min-h-[4rem] p-3 bg-gray-100 dark:bg-dark-bg/50 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 transition-all">
@@ -154,7 +156,7 @@ export class ConstructorApp {
                     <div class="grid grid-cols-4 gap-2 pb-4">
                         ${this.charPool.map((c, i) => `
                             <button class="choice-tile bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-gray-700 rounded-xl aspect-square font-black text-gray-700 dark:text-white shadow-sm hover:border-emerald-400 active:scale-95 transition-all p-0 flex items-center justify-center overflow-hidden ${c.used ? 'opacity-20 pointer-events-none' : ''}" data-index="${i}">
-                                <span class="tile-text w-full text-center leading-none">${c.char}</span>
+                                <span class="tile-text w-full text-center leading-none whitespace-nowrap">${c.char}</span>
                             </button>
                         `).join('')}
                     </div>
@@ -174,7 +176,6 @@ export class ConstructorApp {
         `;
 
         this.container.querySelector('#const-close-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
-        // CLICK LISTENER FOR QUESTION BOX
         this.container.querySelector('#const-question-box').addEventListener('click', () => this.playHint());
         this.container.querySelector('#const-prev-btn').addEventListener('click', () => this.prev());
         this.container.querySelector('#const-next-btn').addEventListener('click', () => this.next());

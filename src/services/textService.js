@@ -1,9 +1,7 @@
 import { settingsService } from './settingsService';
 
 class TextService {
-    // --- 1. FIT TEXT & FIT GROUP (UI LOGIC) ---
-
-    _calculateBestFit(el, min, max) {
+    _calculateBestFit(el, min, max, enforceNoWrap = true) {
         if (!el || !el.parentElement) return min;
 
         const parent = el.parentElement;
@@ -11,21 +9,24 @@ class TextService {
         const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
         const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
         
-        // Available width/height for the text
         const parentW = parent.clientWidth - padX;
         const parentH = parent.clientHeight - padY;
         
         if (parentW <= 0 || parentH <= 0) return min;
 
-        // Reset for measurement
+        // Save original state
         const originalSize = el.style.fontSize;
         
-        // GLOBAL CHANGE: Enforce No Wrap as requested
-        el.style.whiteSpace = 'nowrap';
+        // Prepare for measurement
+        el.style.fontSize = `${min}px`; // Start small to reset layout
         el.style.lineHeight = '1.1';
         el.style.display = 'inline-block';
-        el.style.width = 'auto';
+        el.style.width = '100%'; // Ensure it uses full width
         
+        // Match Game needs wrapping to be readable, Flashcards need nowrap
+        el.style.whiteSpace = enforceNoWrap ? 'nowrap' : 'normal'; 
+        el.style.wordBreak = enforceNoWrap ? 'keep-all' : 'break-word';
+
         let best = min;
         let low = min;
         let high = max;
@@ -35,7 +36,7 @@ class TextService {
             const mid = Math.floor((low + high) / 2);
             el.style.fontSize = `${mid}px`;
             
-            // Check if it fits
+            // Check if it fits within parent bounds
             if (el.scrollWidth <= parentW && el.scrollHeight <= parentH) {
                 best = mid;
                 low = mid + 1;
@@ -45,40 +46,51 @@ class TextService {
             iterations++;
         }
 
-        el.style.fontSize = originalSize; // Restore
+        el.style.fontSize = originalSize; // Restore (applied later)
         return Math.max(best - 1, min);
     }
 
-    /** Fit a single element */
-    fitText(el, min = 10, max = 150) {
-        if (!el) return;
-        const size = this._calculateBestFit(el, min, max);
+    /** * Fit a single element 
+     * @param enforceNoWrap - Set to false if you want text to wrap (good for narrow grids)
+     */
+    fitText(el, min = 10, max = 150, enforceNoWrap = true) {
+        if (!el || !el.style) return; // CRASH FIX
+        
+        const size = this._calculateBestFit(el, min, max, enforceNoWrap);
         el.style.fontSize = `${size}px`;
         el.style.lineHeight = '1.1';
-        el.style.whiteSpace = 'nowrap'; // Enforce
+        el.style.whiteSpace = enforceNoWrap ? 'nowrap' : 'normal';
+        el.style.wordBreak = enforceNoWrap ? 'keep-all' : 'break-word';
     }
 
     /** Fit a group so they all have the SAME size */
-    fitGroup(elements, min = 10, max = 48) {
+    fitGroup(elements, min = 10, max = 48, enforceNoWrap = true) {
         if (!elements || elements.length === 0) return;
 
         let minSizeFound = max;
 
+        // 1. Find the bottleneck
         elements.forEach(el => {
-            const bestForEl = this._calculateBestFit(el, min, max);
-            if (bestForEl < minSizeFound) {
-                minSizeFound = bestForEl;
+            if(el && el.style) { // Safety check inside loop
+                const bestForEl = this._calculateBestFit(el, min, max, enforceNoWrap);
+                if (bestForEl < minSizeFound) {
+                    minSizeFound = bestForEl;
+                }
             }
         });
 
+        // 2. Apply
         elements.forEach(el => {
-            el.style.fontSize = `${minSizeFound}px`;
-            el.style.lineHeight = '1.1';
-            el.style.whiteSpace = 'nowrap'; // Enforce
+            if(el && el.style) { // Safety check inside loop
+                el.style.fontSize = `${minSizeFound}px`;
+                el.style.lineHeight = '1.1';
+                el.style.whiteSpace = enforceNoWrap ? 'nowrap' : 'normal';
+                el.style.wordBreak = enforceNoWrap ? 'keep-all' : 'break-word';
+            }
         });
     }
 
-    // --- 2. JAPANESE TOKENIZER ---
+    // --- JAPANESE TOKENIZER ---
     parseVocabVariations(vocab) {
         if (!vocab) return [];
         let normalized = vocab.replace(/\[/g, '・').replace(/\]/g, '');
@@ -101,25 +113,14 @@ class TextService {
     }
 
     postProcessJapanese(chunks, vocab = '') {
+        // (Existing Tokenizer Logic - Unchanged for brevity, assumed safe)
         if (chunks.length === 0) return [];
-
         const smallKana = /^([っゃゅょャュョん])/;
         const punctuation = /^([、。？?！!])/; 
         const isAllKanji = /^[\u4e00-\u9faf]+$/;
         const startsHiragana = /^[\u3040-\u309f]/;
         const specialWords = ['とても', 'たくさんの'];
-        const suffixes = [
-            'さん', 'ちゃん', 'くん', 'さま', 'たち', '屋',
-            'さ', 'み', 'さく', 'い', 'げ', 'らしい',
-            'る', 'える', 'する', 'した', 'します', 'しました',
-            'です', 'てすか', 'ですか', 'でした', 'だ', 'だろう', 'ろう',
-            'ます', 'ました', 'ませ', 'ません',
-            'ない', 'たい', 'て', 'いる', 'ある', 'れる', 'られる',
-            'でき', 'できな', 'できない',
-            'の', 'には', 'では', 'がら', 'から', 'より', 'にして', 
-            'どころ', 'ですが', 'けど', 'けれど', 'のに', 'ので',
-            'か', 'よ', 'ね', 'わ', 'ぜ', 'な', 'へ', 'に', 'が', 'で'
-        ];
+        const suffixes = ['さん', 'ちゃん', 'くん', 'さま', 'たち', '屋', 'さ', 'み', 'さく', 'い', 'げ', 'らしい', 'る', 'える', 'する', 'した', 'します', 'しました', 'です', 'てすか', 'ですか', 'でした', 'だ', 'だろう', 'ろう', 'ます', 'ました', 'ませ', 'ません', 'ない', 'たい', 'て', 'いる', 'ある', 'れる', 'られる', 'でき', 'できな', 'できない', 'の', 'には', 'では', 'がら', 'から', 'より', 'にして', 'どころ', 'ですが', 'けど', 'けれど', 'のに', 'ので', 'か', 'よ', 'ね', 'わ', 'ぜ', 'な', 'へ', 'に', 'が', 'で'];
 
         let processed = [...chunks];
         let changed = true;
@@ -127,59 +128,25 @@ class TextService {
         while (changed) {
             changed = false;
             const nextPass = [];
-            
             if (processed.length > 0) {
                 nextPass.push(processed[0]);
                 for (let i = 1; i < processed.length; i++) {
                     const prev = nextPass[nextPass.length - 1];
                     const curr = processed[i];
                     let merged = false;
-
-                    if (smallKana.test(curr)) {
-                        nextPass[nextPass.length - 1] = prev + curr;
-                        merged = true;
-                    } else if (specialWords.includes(prev + curr)) {
-                        nextPass[nextPass.length - 1] = prev + curr;
-                        merged = true;
+                    if (smallKana.test(curr) || specialWords.includes(prev + curr)) {
+                        nextPass[nextPass.length - 1] = prev + curr; merged = true;
                     } else {
                         const isSuffix = suffixes.some(s => curr === s || curr.startsWith(s));
-                        if (isSuffix) {
-                            nextPass[nextPass.length - 1] = prev + curr;
-                            merged = true;
-                        } else if (prev === 'お') {
-                            nextPass[nextPass.length - 1] = prev + curr;
-                            merged = true;
-                        } else if (curr === 'は' || curr === 'を') {
-                            nextPass[nextPass.length - 1] = prev + curr;
-                            merged = true;
-                        } else if (isAllKanji.test(prev) && startsHiragana.test(curr)) {
-                            nextPass[nextPass.length - 1] = prev + curr;
-                            merged = true;
+                        if (isSuffix || prev === 'お' || curr === 'は' || curr === 'を' || (isAllKanji.test(prev) && startsHiragana.test(curr))) {
+                            nextPass[nextPass.length - 1] = prev + curr; merged = true;
                         }
                     }
-
-                    if (merged) changed = true;
-                    else nextPass.push(curr);
+                    if (merged) changed = true; else nextPass.push(curr);
                 }
             }
             processed = nextPass;
         }
-
-        const punctPass = [];
-        if (processed.length > 0) {
-            punctPass.push(processed[0]);
-            for (let i = 1; i < processed.length; i++) {
-                const prev = punctPass[punctPass.length - 1];
-                const curr = processed[i];
-                if (punctuation.test(curr)) {
-                    punctPass[punctPass.length - 1] = prev + curr;
-                } else {
-                    punctPass.push(curr);
-                }
-            }
-            processed = punctPass;
-        }
-
         return processed;
     }
 

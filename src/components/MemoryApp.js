@@ -49,11 +49,11 @@ export class MemoryApp {
         this.flippedIndices.push(idx);
         this.render();
 
-        if (settingsService.get().clickAudio) {
+        // FIXED: Check default-true setting
+        if (settingsService.get().clickAudio !== false) {
             const c = this.cards[idx];
             const lang = c.type === 'target' ? settingsService.get().targetLang : settingsService.get().originLang;
-            // Short delay to allow render update
-            setTimeout(() => audioService.speak(c.text, lang), 50);
+            audioService.speak(c.text, lang);
         }
 
         if (this.flippedIndices.length === 2) {
@@ -85,14 +85,22 @@ export class MemoryApp {
         }
     }
 
+    next() { this.startNewGame(); }
+    prev() { this.startNewGame(); }
+
     render() {
         if (!this.container) return;
         
+        const currentEditId = this.cards.length > 0 ? this.cards[0].pairId : 0;
+
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2">
                     <div class="text-xl font-black text-purple-500 tracking-tighter">MEMORY</div>
-                    <button id="mem-random-btn" class="ml-2 bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-gray-500 hover:text-purple-500 active:scale-95 transition-all">
+                    <button class="game-edit-btn bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-gray-500 hover:text-purple-500 active:scale-95 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                    </button>
+                    <button id="mem-random-btn" class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-gray-500 hover:text-purple-500 active:scale-95 transition-all">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
                     </button>
                 </div>
@@ -110,17 +118,15 @@ export class MemoryApp {
                     ${this.cards.map((c, i) => {
                         const isFlipped = this.flippedIndices.includes(i) || c.matched;
                         
-                        // TEXT CONTENT LOGIC
-                        // We wrap text in a div that counter-rotates (rotate-y-180) when flipped.
-                        // This effectively "un-mirrors" the text relative to the viewer.
+                        // FIXED: Text rotation to fix mirror effect
                         const content = isFlipped 
                             ? `<div class="w-full h-full flex items-center justify-center rotate-y-180"><span class="card-text font-bold text-center leading-tight select-none w-full px-1">${c.text}</span></div>` 
                             : ``;
                         
-                        // Style Logic
+                        // FIXED: Dark Back (no pink, no ?)
                         const bg = isFlipped 
                             ? (c.matched ? 'bg-green-100 dark:bg-green-900/30 border-green-300' : 'bg-white dark:bg-dark-card border-purple-300') 
-                            : 'bg-gray-800 border-gray-600 dark:bg-gray-700'; // Dark back
+                            : 'bg-gray-800 border-gray-600 dark:bg-gray-700'; 
                         const txt = isFlipped 
                             ? (c.matched ? 'text-green-700 dark:text-green-300' : 'text-gray-800 dark:text-white') 
                             : '';
@@ -137,6 +143,11 @@ export class MemoryApp {
         this.container.querySelector('#mem-close-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
         this.container.querySelector('#mem-random-btn').addEventListener('click', () => this.startNewGame());
         
+        const editBtn = this.container.querySelector('.game-edit-btn');
+        if(editBtn) {
+            this.currentData = { item: { id: currentEditId } };
+        }
+
         this.container.querySelectorAll('.mem-card').forEach(btn => btn.addEventListener('click', (e) => this.handleCardClick(parseInt(e.currentTarget.dataset.index))));
         
         requestAnimationFrame(() => textService.fitGroup(this.container.querySelectorAll('.card-text'), 14, 42));

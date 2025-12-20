@@ -43,7 +43,6 @@ export class MatchApp {
         const card = this.cards[idx];
         if (card.matched) return;
 
-        // Audio plays on click
         if (settingsService.get().clickAudio && card.text) {
             const lang = card.type === 'target' ? settingsService.get().targetLang : settingsService.get().originLang;
             audioService.speak(card.text, lang);
@@ -131,7 +130,7 @@ export class MatchApp {
                 <div class="grid grid-cols-3 gap-2 h-full content-center">
                     ${this.cards.map((c, i) => `
                         <button class="match-card relative w-full aspect-square bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-dark-border rounded-xl shadow-sm flex items-center justify-center p-0.5 transition-all duration-200 overflow-hidden ${c.matched ? 'opacity-0 pointer-events-none' : 'hover:scale-105 active:scale-95'}" data-index="${i}">
-                            <span class="card-text font-bold text-gray-700 dark:text-white text-center leading-tight whitespace-nowrap w-full">${c.text}</span>
+                            <span class="card-text font-bold text-gray-700 dark:text-white text-center leading-tight w-full">${c.text}</span>
                         </button>
                     `).join('')}
                 </div>
@@ -142,9 +141,12 @@ export class MatchApp {
         this.container.querySelector('#match-random-btn').addEventListener('click', () => this.startNewGame());
         this.container.querySelectorAll('.match-card').forEach(btn => btn.addEventListener('click', (e) => this.handleCardClick(parseInt(e.currentTarget.dataset.index), e.currentTarget)));
         
-        // FIXED: Using fitText instead of fitGroup to allow distinct sizing for legibility
         requestAnimationFrame(() => {
-            this.container.querySelectorAll('.card-text').forEach(el => textService.fitText(el, 14, 50));
+            if(!this.container) return; // Prevent crash if user navigates away
+            this.container.querySelectorAll('.card-text').forEach(el => {
+                // Pass false for enforceNoWrap to allow wrapping on small cards
+                textService.fitText(el, 14, 50, false);
+            });
         });
     }
 }

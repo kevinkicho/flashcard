@@ -12,7 +12,8 @@ import { quizApp } from './components/QuizApp';
 import { sentencesApp } from './components/SentencesApp';
 import { blanksApp } from './components/BlanksApp';
 import { listeningApp } from './components/ListeningApp'; 
-import { matchApp } from './components/MatchApp'; // NEW IMPORT
+import { matchApp } from './components/MatchApp'; 
+import { constructorApp } from './components/ConstructorApp';
 import { audioService } from './services/audioService';
 import { textService } from './services/textService';
 
@@ -23,7 +24,6 @@ let savedHistory = {}; try { savedHistory = JSON.parse(localStorage.getItem('pol
 window.saveGameHistory = (game, id) => { if (id) { savedHistory[game] = id; localStorage.setItem('polyglot_history', JSON.stringify(savedHistory)); } };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Initialize safe services
     try { scoreService.init(); } catch(e){}
 
     const views = { 
@@ -33,27 +33,22 @@ document.addEventListener('DOMContentLoaded', () => {
         sentences: document.getElementById('sentences-view'), 
         blanks: document.getElementById('blanks-view'),
         listening: document.getElementById('listening-view'),
-        match: document.getElementById('match-view') // NEW VIEW
+        match: document.getElementById('match-view'),
+        constructor: document.getElementById('constructor-view')
     };
     const iconOut = document.getElementById('icon-user-out'); const iconIn = document.getElementById('icon-user-in'); 
     let currentUser = null;
 
-    // 2. AUTH LISTENER - The Main Entry Point
     onAuthStateChanged(auth, async (user) => {
         currentUser = user;
         if (user) { 
-            // User is logged in (Anon or Google)
             if(!user.isAnonymous) {
                 if(iconOut) iconOut.classList.add('hidden'); 
                 if(iconIn) { iconIn.classList.remove('hidden'); iconIn.src = user.photoURL; }
             }
             console.log("User authenticated:", user.uid);
-            
-            // 3. NOW we load data (Sequence Enforced)
             await loadApplicationData();
-            
         } else { 
-            // No user, sign in anonymously
             console.log("No user, signing in...");
             try { await signInAnonymously(auth); } catch(e){ console.error("Auth Error", e); } 
             if(iconOut) iconOut.classList.remove('hidden'); 
@@ -62,7 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateEditPermissions();
     });
 
-    // 4. DATA LOADING FUNCTION
     async function loadApplicationData() {
         const startBtn = document.getElementById('start-app-btn');
         if(startBtn) startBtn.innerText = "Loading Data...";
@@ -71,16 +65,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const saved = settingsService.get(); 
             if(saved.darkMode) document.documentElement.classList.add('dark');
             
-            // Fetch Data
             await vocabService.reload(); 
             dictionaryService.fetchData();
 
-            // Check if data actually arrived
             if (!vocabService.hasData()) {
                 throw new Error("No vocabulary data found.");
             }
 
-            // Enable Button
             if(startBtn) {
                 startBtn.disabled = false; 
                 startBtn.classList.remove('opacity-50', 'cursor-not-allowed'); 
@@ -96,20 +87,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) {
             console.error("Data Load Error:", e);
             if(startBtn) {
-                startBtn.disabled = false; // Allow click to retry
+                startBtn.disabled = false; 
                 startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 startBtn.classList.add('bg-red-500', 'text-white');
                 startBtn.innerText = "Retry Connection";
                 startBtn.onclick = () => {
                     startBtn.disabled = true;
                     startBtn.innerText = "Retrying...";
-                    loadApplicationData(); // Recursive retry
+                    loadApplicationData(); 
                 };
             }
         }
     }
 
-    // ... (Rest of Event Listeners: Login, Edit, Navigation) ...
     document.getElementById('user-login-btn').addEventListener('click', async () => { if (currentUser && !currentUser.isAnonymous) { if(confirm("Log out?")) await signOut(auth); } else { try { await signInWithPopup(auth, googleProvider); } catch(e){} } });
     function updateEditPermissions() { const isAdmin = currentUser && currentUser.email === 'kevinkicho@gmail.com'; document.querySelectorAll('#btn-save-vocab, .btn-save-dict, #btn-add-dict').forEach(btn => { if(btn.id === 'btn-add-dict') btn.style.display = isAdmin ? 'block' : 'none'; else { btn.disabled = !isAdmin; btn.style.display = isAdmin ? 'block' : 'none'; } }); }
     function renderView(viewName) { 
@@ -125,7 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (viewName === 'sentences') { sentencesApp.mount('sentences-view'); if(lastId) sentencesApp.next(lastId); } 
             if (viewName === 'blanks') { blanksApp.mount('blanks-view'); if(lastId) blanksApp.next(lastId); }
             if (viewName === 'listening') { listeningApp.mount('listening-view'); if(lastId) listeningApp.next(lastId); }
-            if (viewName === 'match') { matchApp.mount('match-view'); } // NEW MOUNT
+            if (viewName === 'match') { matchApp.mount('match-view'); }
+            if (viewName === 'constructor') { constructorApp.mount('constructor-view'); }
         } 
     }
     const bindNav = (id, view) => { const btn = document.getElementById(id); if(btn) btn.addEventListener('click', () => { history.pushState({view}, '', `#${view}`); renderView(view); }); };
@@ -134,13 +125,21 @@ document.addEventListener('DOMContentLoaded', () => {
     bindNav('menu-sentences-btn', 'sentences'); 
     bindNav('menu-blanks-btn', 'blanks');
     bindNav('menu-listening-btn', 'listening'); 
-    bindNav('menu-match-btn', 'match'); // NEW BINDING
+    bindNav('menu-match-btn', 'match'); 
+    bindNav('menu-constructor-btn', 'constructor');
 
     window.addEventListener('popstate', (e) => renderView(e.state ? e.state.view : 'home'));
     window.addEventListener('router:home', () => history.back());
     vocabService.subscribe(() => { if (!views.flashcard.classList.contains('hidden')) flashcardApp.refresh(); });
 
-    // --- ACHIEVEMENTS ---
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el));
+        }, 100);
+    });
+
     const achPopup = document.getElementById('achievement-popup');
     window.addEventListener('achievement:unlocked', (e) => {
         const ach = e.detail;
@@ -175,7 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('ach-list-close').addEventListener('click', ()=>{ document.getElementById('ach-list-modal').classList.add('opacity-0'); setTimeout(()=>document.getElementById('ach-list-modal').classList.add('hidden'),200); });
 
-    // --- CHART LOGIC ---
     const scoreModal = document.getElementById('score-modal');
     const scoreClose = document.getElementById('score-close-btn');
     let chartDataCache=null, showingWeeklyScore=false;
@@ -193,7 +191,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!views.sentences.classList.contains('hidden')) app = sentencesApp;
             if (!views.blanks.classList.contains('hidden')) app = blanksApp;
             if (!views.listening.classList.contains('hidden')) app = listeningApp;
-            // Match game has no edit button usually, but just in case
             if (app) {
                 let item = app.currentData && app.currentData.target ? app.currentData.target : (app.currentData || (app.currentIndex!==undefined ? vocabService.getAll()[app.currentIndex] : null));
                 if (item) {
@@ -321,7 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Settings / Edit Logic Helpers ---
     const settingsModal = document.getElementById('settings-modal');
     const openSettings = () => { loadSettingsToUI(); settingsModal.classList.remove('hidden'); setTimeout(()=>settingsModal.classList.remove('opacity-0'), 10); };
     const closeSettings = () => { settingsModal.classList.add('opacity-0'); setTimeout(()=>settingsModal.classList.add('hidden'), 200); };
@@ -332,13 +328,12 @@ document.addEventListener('DOMContentLoaded', () => {
         setVal('target-select', s.targetLang); setVal('origin-select', s.originLang);
         setChk('toggle-dark', s.darkMode); setChk('toggle-audio', s.autoPlay); setChk('toggle-wait-audio', s.waitForAudio);
         setVal('volume-slider', s.volume !== undefined ? s.volume : 1.0);
-        setVal('font-size-select', s.fontSize); setVal('font-family-select', s.fontFamily); setVal('font-weight-select', s.fontWeight);
+        setVal('font-family-select', s.fontFamily); setVal('font-weight-select', s.fontWeight);
         setChk('toggle-vocab', s.showVocab); setChk('toggle-sentence', s.showSentence); setChk('toggle-english', s.showEnglish);
         setChk('toggle-dict-enable', s.dictEnabled); setChk('toggle-dict-click-audio', s.dictClickAudio);
         setChk('toggle-quiz-audio', s.quizAnswerAudio); setChk('toggle-quiz-autoplay-correct', s.quizAutoPlayCorrect); setChk('toggle-quiz-double', s.quizDoubleClick);
         setChk('toggle-sent-audio', s.sentencesWordAudio); setChk('toggle-blanks-audio', s.blanksAnswerAudio); setChk('toggle-blanks-double', s.blanksDoubleClick);
         setChk('toggle-sent-anim', s.sentencesWinAnim !== false); 
-        // NEW GLOBAL CLICK AUDIO
         setChk('toggle-click-audio', s.clickAudio !== false); 
     }
     function bindSetting(id, key, cb) { const el = document.getElementById(id); if(el) el.addEventListener('change', (e) => { settingsService.set(key, e.target.type==='checkbox'?e.target.checked:e.target.value); if(cb) cb(); }); }
@@ -346,7 +341,6 @@ document.addEventListener('DOMContentLoaded', () => {
     bindSetting('origin-select', 'originLang', ()=>flashcardApp.refresh());
     bindSetting('toggle-dark', 'darkMode', () => document.documentElement.classList.toggle('dark'));
     bindSetting('toggle-audio', 'autoPlay'); bindSetting('toggle-wait-audio', 'waitForAudio'); bindSetting('volume-slider', 'volume');
-    bindSetting('font-size-select', 'fontSize', () => document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
     bindSetting('font-family-select', 'fontFamily', () => document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
     bindSetting('font-weight-select', 'fontWeight', () => document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
     bindSetting('toggle-vocab', 'showVocab', ()=>flashcardApp.refresh()); bindSetting('toggle-sentence', 'showSentence', ()=>flashcardApp.refresh()); bindSetting('toggle-english', 'showEnglish', ()=>flashcardApp.refresh());
@@ -354,9 +348,8 @@ document.addEventListener('DOMContentLoaded', () => {
     bindSetting('toggle-quiz-audio', 'quizAnswerAudio'); bindSetting('toggle-quiz-autoplay-correct', 'quizAutoPlayCorrect'); bindSetting('toggle-quiz-double', 'quizDoubleClick');
     bindSetting('toggle-sent-audio', 'sentencesWordAudio'); bindSetting('toggle-blanks-audio', 'blanksAnswerAudio'); bindSetting('toggle-blanks-double', 'blanksDoubleClick');
     bindSetting('toggle-sent-anim', 'sentencesWinAnim');
-    bindSetting('toggle-click-audio', 'clickAudio'); // NEW
+    bindSetting('toggle-click-audio', 'clickAudio'); 
 
-    // Accordions
     [{btn:'dict-accordion-btn',c:'dict-options',a:'accordion-arrow-dict'},{btn:'display-accordion-btn',c:'display-options',a:'accordion-arrow-1'},{btn:'quiz-accordion-btn',c:'quiz-options',a:'accordion-arrow-3'},{btn:'sent-accordion-btn',c:'sent-options',a:'accordion-arrow-sent'},{btn:'blanks-accordion-btn',c:'blanks-options',a:'accordion-arrow-blanks'},{btn:'fonts-accordion-btn',c:'fonts-options',a:'accordion-arrow-fonts'}].forEach(o=>{
         const b=document.getElementById(o.btn), c=document.getElementById(o.c), a=document.getElementById(o.a);
         if(b) b.addEventListener('click', ()=>{ c.classList.toggle('open'); a.classList.toggle('rotate'); });
@@ -384,12 +377,10 @@ document.addEventListener('DOMContentLoaded', () => {
         entries.forEach(entry => {
             const div = document.createElement('div');
             div.className = "bg-gray-100 dark:bg-black/20 p-4 rounded-xl border border-gray-200 dark:border-gray-700";
-            // FIXED: Added .audio-trigger to the word
             div.innerHTML = `<div class="flex justify-between items-center mb-2"><span class="text-2xl font-black text-indigo-600 dark:text-indigo-400 audio-trigger cursor-pointer hover:opacity-75" data-text="${entry.s}">${entry.s}</span><span class="text-xs font-mono text-gray-400 bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded">ID: ${entry.id || '?'}</span></div><div class="grid grid-cols-1 gap-2 text-sm"><input class="p-2 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 dark:text-white" value="${entry.p || ''}" placeholder="Pinyin" id="dict-p-${entry.id}"><input class="p-2 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 dark:text-white" value="${entry.e || ''}" placeholder="English" id="dict-e-${entry.id}"><input class="p-2 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 dark:text-white" value="${entry.ko || ''}" placeholder="Korean" id="dict-k-${entry.id}"><button class="btn-save-dict w-full mt-2 py-2 bg-blue-500 text-white rounded-lg font-bold hover:bg-blue-600 transition-colors" data-id="${entry.id}">SAVE ENTRY</button></div>`;
             listContainer.appendChild(div);
         });
         
-        // FIXED: Explicitly use targetLang for audio to avoid "Chinese read as English" issues
         listContainer.querySelectorAll('.audio-trigger').forEach(el => {
             el.addEventListener('click', () => audioService.speak(el.dataset.text, 'zh'));
         });

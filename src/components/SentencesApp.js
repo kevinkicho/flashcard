@@ -73,7 +73,7 @@ export class SentencesApp {
         
         let words = [];
         if (settings.targetLang === 'ja') {
-            words = textService.tokenizeJapanese(clean, item.front.main);
+            words = textService.tokenizeJapanese(clean);
         } else {
             words = clean.split(' ').filter(w => w.length);
         }
@@ -96,7 +96,6 @@ export class SentencesApp {
         this.userSentence.push({...w, bankIndex: idx}); 
         this.wordBankStatus[idx] = true; 
         
-        // CHECKED: Global Audio Toggle
         if(settingsService.get().clickAudio) {
             audioService.speak(w.word, settingsService.get().targetLang);
         }
@@ -111,7 +110,6 @@ export class SentencesApp {
         this.wordBankStatus[item.bankIndex] = false; 
         this.userSentence.splice(idx, 1); 
         
-        // CHECKED: Global Audio Toggle
         if(settingsService.get().clickAudio) {
             audioService.speak(item.word, settingsService.get().targetLang);
         }
@@ -164,6 +162,7 @@ export class SentencesApp {
         
         const hintText = textService.smartWrap(item.back.sentenceOrigin);
 
+        // CLEANER STRUCTURE: Removed local padding tweaks to let textService handle it
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2"><div class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full pl-1 pr-3 py-1 flex items-center shadow-sm"><span class="bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 text-xs font-bold px-2 py-1 rounded-full mr-2">ID</span><input type="number" id="sent-id-input" class="w-12 bg-transparent border-none text-center font-bold text-gray-700 dark:text-white text-sm p-0" value="${item.id}"></div>
@@ -185,14 +184,14 @@ export class SentencesApp {
                     <div class="mt-1 text-center flex-none h-14 flex items-center justify-center border-b border-gray-100 dark:border-gray-800 mb-2">
                         <h2 class="text-xl font-bold text-gray-500 dark:text-gray-400 w-full" data-fit="true" data-wrap="true" data-type="hint">${hintText}</h2>
                     </div>
-                    <div id="sentence-drop-zone" class="flex-1 flex flex-wrap content-start gap-2 overflow-hidden p-2 rounded-xl border border-transparent transition-all ${settingsService.get().targetLang === 'ja' ? 'text-ja-wrap' : ''}">
-                        ${this.userSentence.map((obj, i) => `<button class="user-word px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-lg border-2 border-transparent" data-index="${i}" data-fit="true">${obj.word}</button>`).join('')}
+                    <div id="sentence-drop-zone" class="flex-1 flex flex-wrap content-start gap-1 overflow-hidden p-1 rounded-xl border border-transparent transition-all">
+                        ${this.userSentence.map((obj, i) => `<button class="user-word px-3 py-1 bg-indigo-600 text-white rounded-lg font-bold border border-transparent" data-index="${i}" data-fit="true">${obj.word}</button>`).join('')}
                     </div>
                 </div>
 
-                <div class="flex-1 min-h-0 bg-gray-100 dark:bg-dark-bg/50 rounded-[2rem] p-4 overflow-hidden flex items-center justify-center">
-                    <div class="flex flex-wrap gap-2 justify-center content-center w-full max-h-full overflow-y-auto custom-scrollbar pr-1">
-                        ${this.shuffledWords.map((obj, i) => `<button class="bank-word flex-grow min-w-[60px] px-3 py-2 bg-white dark:bg-dark-card border-b-4 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-white rounded-xl text-lg font-bold border-2 border-transparent transition-all ${this.wordBankStatus[i]?'opacity-0 pointer-events-none':''}" data-index="${i}" data-fit="true">${obj.word}</button>`).join('')}
+                <div class="flex-1 min-h-0 bg-gray-100 dark:bg-dark-bg/50 rounded-[2rem] p-2 overflow-hidden flex items-center justify-center">
+                    <div class="flex flex-wrap gap-2 justify-center content-center w-full max-h-full overflow-y-auto custom-scrollbar">
+                        ${this.shuffledWords.map((obj, i) => `<button class="bank-word flex-grow min-w-[60px] px-3 py-2 bg-white dark:bg-dark-card border-b-4 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-white rounded-xl font-bold border border-transparent transition-all ${this.wordBankStatus[i]?'opacity-0 pointer-events-none':''}" data-index="${i}" data-fit="true">${obj.word}</button>`).join('')}
                     </div>
                 </div>
             </div>
@@ -214,28 +213,7 @@ export class SentencesApp {
         
         requestAnimationFrame(() => {
             this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el));
-            this.fitDropZone();
         });
-    }
-
-    // UPDATED: Iterative scale down until perfect fit
-    fitDropZone() {
-        const zone = document.getElementById('sentence-drop-zone');
-        if (!zone) return;
-        
-        // Start fresh
-        let currentScale = 100; // 100%
-        zone.style.fontSize = '';
-        
-        const isOverflowing = () => {
-            return zone.scrollHeight > zone.clientHeight || zone.scrollWidth > zone.clientWidth;
-        };
-
-        // Aggressively shrink until fits
-        while (isOverflowing() && currentScale > 30) {
-            currentScale -= 5;
-            zone.style.fontSize = `${currentScale}%`;
-        }
     }
 }
 export const sentencesApp = new SentencesApp();

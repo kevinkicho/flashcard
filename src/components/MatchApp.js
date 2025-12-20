@@ -2,6 +2,7 @@ import { vocabService } from '../services/vocabService';
 import { settingsService } from '../services/settingsService';
 import { audioService } from '../services/audioService';
 import { scoreService } from '../services/scoreService';
+import { textService } from '../services/textService'; // Import textService
 
 export class MatchApp {
     constructor() {
@@ -23,33 +24,27 @@ export class MatchApp {
         this.matchesFound = 0;
         
         const allVocab = vocabService.getAll();
-        if (allVocab.length < 6) return; // Need at least 6 items
+        if (allVocab.length < 6) return; 
 
-        // Pick 6 random items
         const gameItems = [...allVocab].sort(() => 0.5 - Math.random()).slice(0, 6);
         
-        // Create 12 cards (6 Target, 6 Origin)
         let deck = [];
         gameItems.forEach(item => {
-            // Target Card
             deck.push({
                 id: item.id,
                 type: 'target',
                 text: item.front.main,
                 pairId: item.id
             });
-            // Origin Card
             deck.push({
                 id: item.id,
                 type: 'origin',
-                text: item.back.main || item.back.definition, // Fallback
+                text: item.back.main || item.back.definition, 
                 pairId: item.id
             });
         });
 
-        // Shuffle deck
         this.cards = deck.sort(() => 0.5 - Math.random());
-        
         this.render();
     }
 
@@ -57,10 +52,8 @@ export class MatchApp {
         if (this.isProcessing) return;
         const card = this.cards[idx];
         
-        // Ignore if already matched or same card clicked
         if (card.matched || (this.selectedCard && this.selectedCard.idx === idx)) return;
 
-        // Play Audio (Global Setting)
         if (settingsService.get().clickAudio) {
             const lang = card.type === 'target' ? settingsService.get().targetLang : settingsService.get().originLang;
             audioService.speak(card.text, lang);
@@ -69,31 +62,25 @@ export class MatchApp {
         el.classList.add('ring-4', 'ring-indigo-400', 'scale-105', 'bg-indigo-50', 'dark:bg-indigo-900/30');
 
         if (!this.selectedCard) {
-            // First pick
             this.selectedCard = { idx, ...card, el };
         } else {
-            // Second pick - Check Match
             this.isProcessing = true;
             const first = this.selectedCard;
             
             if (first.pairId === card.pairId) {
-                // MATCH!
                 this.matchesFound++;
                 scoreService.addScore('match', 10);
                 
-                // Visual Celebration
                 first.el.classList.remove('ring-indigo-400');
                 el.classList.remove('ring-indigo-400');
                 first.el.classList.add('animate-celebrate', 'border-green-500', 'text-green-600');
                 el.classList.add('animate-celebrate', 'border-green-500', 'text-green-600');
 
-                // Mark matched in state
                 this.cards[first.idx].matched = true;
                 this.cards[idx].matched = true;
 
                 await new Promise(r => setTimeout(r, 600));
                 
-                // Fade out/Hide
                 first.el.classList.add('opacity-0', 'pointer-events-none');
                 el.classList.add('opacity-0', 'pointer-events-none');
                 
@@ -105,14 +92,12 @@ export class MatchApp {
                 }
 
             } else {
-                // MISMATCH
                 first.el.classList.remove('ring-indigo-400');
                 el.classList.remove('ring-indigo-400');
                 
                 first.el.classList.add('bg-red-100', 'dark:bg-red-900/30', 'shake');
                 el.classList.add('bg-red-100', 'dark:bg-red-900/30', 'shake');
 
-                // Reset styles after delay
                 await new Promise(r => setTimeout(r, 500));
                 
                 first.el.classList.remove('ring-4', 'scale-105', 'bg-indigo-50', 'dark:bg-indigo-900/30', 'bg-red-100', 'dark:bg-red-900/30', 'shake');
@@ -140,10 +125,10 @@ export class MatchApp {
             </div>
 
             <div class="w-full h-full pt-20 pb-10 px-4 max-w-lg mx-auto">
-                <div class="grid grid-cols-3 gap-3 h-full content-center">
+                <div class="grid grid-cols-3 gap-2 h-full content-center">
                     ${this.cards.map((c, i) => `
-                        <button class="match-card relative w-full aspect-square bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-dark-border rounded-2xl shadow-sm flex items-center justify-center p-2 transition-all duration-200 ${c.matched ? 'opacity-0 pointer-events-none' : 'hover:scale-105 active:scale-95'}" data-index="${i}">
-                            <span class="font-bold text-sm md:text-base text-gray-700 dark:text-white break-words text-center leading-tight ${c.type === 'target' && settingsService.get().targetLang === 'ja' ? 'text-ja-wrap' : ''}">${c.text}</span>
+                        <button class="match-card relative w-full aspect-square bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-dark-border rounded-xl shadow-sm flex items-center justify-center p-1 transition-all duration-200 ${c.matched ? 'opacity-0 pointer-events-none' : 'hover:scale-105 active:scale-95'}" data-index="${i}">
+                            <span class="font-bold text-gray-700 dark:text-white text-center leading-tight w-full" data-fit="true">${c.text}</span>
                         </button>
                     `).join('')}
                 </div>
@@ -159,6 +144,11 @@ export class MatchApp {
         
         this.container.querySelectorAll('.match-card').forEach(btn => {
             btn.addEventListener('click', (e) => this.handleCardClick(parseInt(e.currentTarget.dataset.index), e.currentTarget));
+        });
+
+        // Trigger fitText
+        requestAnimationFrame(() => {
+            this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el));
         });
     }
 }

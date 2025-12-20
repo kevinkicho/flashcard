@@ -2,7 +2,7 @@ import { vocabService } from '../services/vocabService';
 import { settingsService } from '../services/settingsService';
 import { audioService } from '../services/audioService';
 import { textService } from '../services/textService';
-import { scoreService } from '../services/scoreService'; // New Import
+import { scoreService } from '../services/scoreService'; 
 
 export class SentencesApp {
     constructor() { 
@@ -96,7 +96,8 @@ export class SentencesApp {
         this.userSentence.push({...w, bankIndex: idx}); 
         this.wordBankStatus[idx] = true; 
         
-        if(settingsService.get().sentencesWordAudio) {
+        // CHECKED: Global Audio Toggle
+        if(settingsService.get().clickAudio) {
             audioService.speak(w.word, settingsService.get().targetLang);
         }
         
@@ -110,7 +111,8 @@ export class SentencesApp {
         this.wordBankStatus[item.bankIndex] = false; 
         this.userSentence.splice(idx, 1); 
         
-        if(settingsService.get().sentencesWordAudio) {
+        // CHECKED: Global Audio Toggle
+        if(settingsService.get().clickAudio) {
             audioService.speak(item.word, settingsService.get().targetLang);
         }
         
@@ -125,9 +127,11 @@ export class SentencesApp {
             if (u.replace(/\s/g, '') === t.replace(/\s/g, '')) {
                 this.isProcessing = true; 
                 const zone = this.container.querySelector('#sentence-drop-zone');
-                if (zone) zone.classList.add('bg-green-100', 'dark:bg-green-900/20');
                 
-                // SCORING: +10 on win
+                if (settingsService.get().sentencesWinAnim !== false) {
+                     zone.classList.add('animate-celebrate');
+                }
+                
                 scoreService.addScore('sentences', 10);
 
                 const s = settingsService.get();
@@ -174,21 +178,25 @@ export class SentencesApp {
                     <button id="sent-close-btn" class="header-icon-btn bg-red-50 text-red-500 rounded-full shadow-sm"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
                 </div>
             </div>
-            <div class="w-full h-full pt-20 pb-28 px-4 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div id="sent-hint-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-4 flex flex-col relative">
-                    <div class="mt-1 text-center flex-none h-14 flex items-center justify-center">
+            
+            <div class="w-full h-full pt-20 pb-28 px-4 max-w-6xl mx-auto flex flex-col gap-4 overflow-hidden">
+                
+                <div id="sent-hint-box" class="flex-1 min-h-0 bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-4 flex flex-col relative overflow-hidden">
+                    <div class="mt-1 text-center flex-none h-14 flex items-center justify-center border-b border-gray-100 dark:border-gray-800 mb-2">
                         <h2 class="text-xl font-bold text-gray-500 dark:text-gray-400 w-full" data-fit="true" data-wrap="true" data-type="hint">${hintText}</h2>
                     </div>
-                    <div id="sentence-drop-zone" class="flex-grow mt-2 flex flex-wrap content-start gap-2 overflow-y-auto">
-                        ${this.userSentence.map((obj, i) => `<button class="user-word px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:scale-105 transition-transform border-2 border-transparent" data-index="${i}" data-fit="true">${obj.word}</button>`).join('')}
+                    <div id="sentence-drop-zone" class="flex-1 flex flex-wrap content-start gap-2 overflow-hidden p-2 rounded-xl border border-transparent transition-all ${settingsService.get().targetLang === 'ja' ? 'text-ja-wrap' : ''}">
+                        ${this.userSentence.map((obj, i) => `<button class="user-word px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-lg border-2 border-transparent" data-index="${i}" data-fit="true">${obj.word}</button>`).join('')}
                     </div>
                 </div>
-                <div class="w-full h-full bg-gray-100 dark:bg-dark-bg/50 rounded-[2rem] p-4 overflow-y-auto">
-                    <div class="flex flex-wrap gap-3 justify-center content-start h-full">
-                        ${this.shuffledWords.map((obj, i) => `<button class="bank-word flex-grow min-w-[80px] px-4 py-3 bg-white dark:bg-dark-card border-b-4 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-white rounded-xl text-lg font-bold border-2 border-transparent ${this.wordBankStatus[i]?'opacity-0 pointer-events-none':''}" data-index="${i}" data-fit="true">${obj.word}</button>`).join('')}
+
+                <div class="flex-1 min-h-0 bg-gray-100 dark:bg-dark-bg/50 rounded-[2rem] p-4 overflow-hidden flex items-center justify-center">
+                    <div class="flex flex-wrap gap-2 justify-center content-center w-full max-h-full overflow-y-auto custom-scrollbar pr-1">
+                        ${this.shuffledWords.map((obj, i) => `<button class="bank-word flex-grow min-w-[60px] px-3 py-2 bg-white dark:bg-dark-card border-b-4 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-white rounded-xl text-lg font-bold border-2 border-transparent transition-all ${this.wordBankStatus[i]?'opacity-0 pointer-events-none':''}" data-index="${i}" data-fit="true">${obj.word}</button>`).join('')}
                     </div>
                 </div>
             </div>
+            
             <div class="fixed bottom-0 left-0 right-0 p-6 z-40 bg-gradient-to-t from-gray-100 via-gray-100 to-transparent dark:from-dark-bg"><div class="max-w-md mx-auto flex gap-4"><button id="sent-prev-btn" class="flex-1 h-16 bg-white border border-gray-200 rounded-3xl shadow-sm flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg></button><button id="sent-next-btn" class="flex-1 h-16 bg-indigo-600 text-white rounded-3xl shadow-xl flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg></button></div></div>
         `;
 
@@ -204,7 +212,30 @@ export class SentencesApp {
         this.container.querySelectorAll('.bank-word').forEach(btn => btn.addEventListener('click', () => this.handleBankClick(parseInt(btn.dataset.index))));
         this.container.querySelectorAll('.user-word').forEach(btn => btn.addEventListener('click', () => this.handleUserClick(parseInt(btn.dataset.index))));
         
-        requestAnimationFrame(() => this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
+        requestAnimationFrame(() => {
+            this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el));
+            this.fitDropZone();
+        });
+    }
+
+    // UPDATED: Iterative scale down until perfect fit
+    fitDropZone() {
+        const zone = document.getElementById('sentence-drop-zone');
+        if (!zone) return;
+        
+        // Start fresh
+        let currentScale = 100; // 100%
+        zone.style.fontSize = '';
+        
+        const isOverflowing = () => {
+            return zone.scrollHeight > zone.clientHeight || zone.scrollWidth > zone.clientWidth;
+        };
+
+        // Aggressively shrink until fits
+        while (isOverflowing() && currentScale > 30) {
+            currentScale -= 5;
+            zone.style.fontSize = `${currentScale}%`;
+        }
     }
 }
 export const sentencesApp = new SentencesApp();

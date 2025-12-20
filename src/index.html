@@ -28,14 +28,11 @@
         .arrow.rotate { transform: rotate(180deg); }
         
         /* Chart Styles */
-        .chart-bar-container { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; height: 100%; gap: 8px; }
-        .chart-bar { width: 100%; background: #E5E7EB; border-radius: 6px; transition: height 0.5s ease; min-height: 4px; position: relative; }
+        .chart-bar-container { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; height: 100%; gap: 8px; cursor: pointer; position: relative; }
+        .chart-bar { width: 100%; background: #E5E7EB; border-radius: 6px; transition: height 0.5s ease; min-height: 6px; position: relative; display: flex; flex-direction: column-reverse; overflow: hidden; }
         .dark .chart-bar { background: #374151; }
-        .chart-bar.active { background: #4F46E5; } /* Indigo */
-        .chart-bar:hover { opacity: 0.8; }
-        .chart-label { font-size: 10px; font-weight: bold; color: #9CA3AF; }
-        .chart-val { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: bold; color: #6B7280; opacity: 0; transition: opacity 0.2s; white-space: nowrap; }
-        .chart-bar:hover .chart-val { opacity: 1; }
+        .chart-bar:hover { opacity: 0.9; transform: scale(1.02); transition: transform 0.2s; }
+        .chart-label { font-size: 10px; font-weight: bold; color: #9CA3AF; margin-top: 4px; }
     </style>
 </head>
 <body class="is-loading transition-colors duration-300 bg-gray-50 text-gray-900 dark:bg-dark-bg dark:text-dark-text">
@@ -63,7 +60,10 @@
             <div class="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gradient-to-r from-indigo-600 to-purple-600">
                 <div>
                     <h3 class="text-2xl font-black text-white">Achievements</h3>
-                    <p class="text-indigo-100 text-xs font-bold uppercase tracking-widest mt-1">Hall of Fame</p>
+                    <div class="inline-flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded-full mt-1">
+                        <span class="text-xs text-indigo-100 font-bold uppercase tracking-widest">Total:</span>
+                        <span class="text-sm font-black text-white global-score-display">0</span>
+                    </div>
                 </div>
                 <button id="ach-list-close" class="bg-white/20 hover:bg-white/30 text-white rounded-full p-2 backdrop-blur-sm transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
@@ -78,8 +78,13 @@
                 <button id="score-close-btn" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
             
-            <div class="flex justify-between items-end h-48 w-full gap-3" id="score-chart-container">
-                <div class="w-full h-full flex items-center justify-center text-gray-400 text-sm">Loading...</div>
+            <div class="relative h-48 w-full flex flex-col">
+                <div id="chart-tooltip-area" class="h-8 w-full flex justify-center items-center mb-2 pointer-events-none">
+                    <span class="text-xs text-gray-400 italic">Click bars for details</span>
+                </div>
+                <div class="flex justify-between items-end flex-1 gap-3 pb-2" id="score-chart-container">
+                    <div class="w-full h-full flex items-center justify-center text-gray-400 text-sm">Loading...</div>
+                </div>
             </div>
             
             <div class="mt-6 text-center cursor-pointer hover:opacity-80 transition-opacity" id="score-total-toggle">
@@ -141,6 +146,8 @@
             <button id="menu-quiz-btn" class="group relative overflow-hidden bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border p-6 rounded-3xl shadow-xl hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] transition-all active:scale-95 text-left transform hover:-translate-y-1"><h2 class="text-2xl font-black text-purple-600 dark:text-purple-400 mb-2">Quiz Mode</h2><p class="text-gray-500 dark:text-gray-400">Test your skills with rapid-fire questions.</p></button>
             <button id="menu-sentences-btn" class="group relative overflow-hidden bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border p-6 rounded-3xl shadow-xl hover:shadow-[0_0_20px_rgba(219,39,119,0.3)] transition-all active:scale-95 text-left transform hover:-translate-y-1"><h2 class="text-2xl font-black text-pink-600 dark:text-pink-400 mb-2">Sentences</h2><p class="text-gray-500 dark:text-gray-400">Construct sentences from jumbled words.</p></button>
             <button id="menu-blanks-btn" class="group relative overflow-hidden bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border p-6 rounded-3xl shadow-xl hover:shadow-[0_0_20px_rgba(13,148,136,0.3)] transition-all active:scale-95 text-left transform hover:-translate-y-1"><h2 class="text-2xl font-black text-teal-600 dark:text-teal-400 mb-2">Blanks</h2><p class="text-gray-500 dark:text-gray-400">Fill in the missing words.</p></button>
+            <button id="menu-listening-btn" class="group relative overflow-hidden bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border p-6 rounded-3xl shadow-xl hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all active:scale-95 text-left transform hover:-translate-y-1"><h2 class="text-2xl font-black text-blue-600 dark:text-blue-400 mb-2">Listening</h2><p class="text-gray-500 dark:text-gray-400">Test your ears with audio challenges.</p></button>
+            <button id="menu-match-btn" class="group relative overflow-hidden bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border p-6 rounded-3xl shadow-xl hover:shadow-[0_0_20px_rgba(245,158,11,0.3)] transition-all active:scale-95 text-left transform hover:-translate-y-1"><h2 class="text-2xl font-black text-yellow-600 dark:text-yellow-400 mb-2">Match</h2><p class="text-gray-500 dark:text-gray-400">Race to pair words and meanings.</p></button>
         </div>
     </div>
 
@@ -148,6 +155,8 @@
     <div id="quiz-view" class="fixed inset-0 z-50 bg-gray-100 dark:bg-dark-bg hidden flex flex-col transition-colors duration-300"></div>
     <div id="sentences-view" class="fixed inset-0 z-50 bg-gray-100 dark:bg-dark-bg hidden flex flex-col transition-colors duration-300"></div>
     <div id="blanks-view" class="fixed inset-0 z-50 bg-gray-100 dark:bg-dark-bg hidden flex flex-col transition-colors duration-300"></div>
+    <div id="listening-view" class="fixed inset-0 z-50 bg-gray-100 dark:bg-dark-bg hidden flex flex-col transition-colors duration-300"></div>
+    <div id="match-view" class="fixed inset-0 z-50 bg-gray-100 dark:bg-dark-bg hidden flex flex-col transition-colors duration-300"></div>
 
     <div id="settings-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center opacity-0 transition-opacity duration-200">
         <div id="modal-backdrop" class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
@@ -157,19 +166,20 @@
                 <div>
                     <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Target</label>
                     <select id="target-select" class="w-full bg-gray-50 dark:bg-black border dark:border-gray-800 p-3 rounded-xl text-gray-900 dark:text-white">
-                        <option value="ja">Japanese (日本語)</option><option value="ko">Korean (한국어)</option><option value="zh">Chinese (中文)</option><option value="en">English</option><option value="ru">Russian (Русский)</option><option value="fr">French (Français)</option><option value="it">Italian (Italiano)</option><option value="es">Spanish (Español)</option><option value="pt">Portuguese (Português)</option><option value="de">German (Deutsch)</option>
+                        <option value="ja">日本語</option><option value="ko">한국어</option><option value="zh">中文</option><option value="en">English</option><option value="ru">Русский</option><option value="fr">Français</option><option value="it">Italiano</option><option value="es">Español</option><option value="pt">Português</option><option value="de">Deutsch</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Origin</label>
                     <select id="origin-select" class="w-full bg-gray-50 dark:bg-black border dark:border-gray-800 p-3 rounded-xl text-gray-900 dark:text-white">
-                        <option value="en">English</option><option value="ja">Japanese (日本語)</option><option value="ko">Korean (한국어)</option><option value="zh">Chinese (中文)</option><option value="ru">Russian (Русский)</option><option value="fr">French (Français)</option><option value="it">Italian (Italiano)</option><option value="es">Spanish (Español)</option><option value="pt">Portuguese (Português)</option><option value="de">German (Deutsch)</option>
+                        <option value="en">English</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="zh">中文</option><option value="ru">Русский</option><option value="fr">Français</option><option value="it">Italiano</option><option value="es">Español</option><option value="pt">Português</option><option value="de">Deutsch</option>
                     </select>
                 </div>
                 
                 <div class="flex justify-between items-center"><span class="font-bold dark:text-white">Dark Mode</span><input type="checkbox" id="toggle-dark" class="w-5 h-5"></div>
                 <div class="flex justify-between items-center"><span class="font-bold dark:text-white">Auto Play Audio</span><input type="checkbox" id="toggle-audio" class="w-5 h-5"></div>
                 <div class="flex justify-between items-center"><span class="font-bold dark:text-white">Wait for Audio</span><input type="checkbox" id="toggle-wait-audio" class="w-5 h-5"></div>
+                <div class="flex justify-between items-center"><span class="font-bold dark:text-white">Touch-to-Speak</span><input type="checkbox" id="toggle-click-audio" class="w-5 h-5"></div>
                 
                 <div class="flex justify-between items-center">
                     <span class="font-bold dark:text-white">Volume</span>
@@ -185,11 +195,11 @@
                     </div>
                 </div>
 
-                <div class="border-t border-gray-100 dark:border-gray-800 pt-4"><button id="dict-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Dictionary</span><span id="accordion-arrow-dict" class="arrow">▼</span></button><div id="dict-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Enable Popup</span><input type="checkbox" id="toggle-dict-enable"></div><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Click to Read</span><input type="checkbox" id="toggle-dict-click-audio"></div></div></div>
+                <div class="border-t border-gray-100 dark:border-gray-800 pt-4"><button id="dict-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Dictionary</span><span id="accordion-arrow-dict" class="arrow">▼</span></button><div id="dict-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Enable Popup</span><input type="checkbox" id="toggle-dict-enable"></div></div></div>
                 <div class="border-t border-gray-100 dark:border-gray-800 pt-4"><button id="display-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Card Visuals</span><span id="accordion-arrow-1" class="arrow">▼</span></button><div id="display-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Show Vocab</span><input type="checkbox" id="toggle-vocab"></div><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Show Sentence</span><input type="checkbox" id="toggle-sentence"></div><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Show English</span><input type="checkbox" id="toggle-english"></div></div></div>
-                <div class="border-t border-gray-100 dark:border-gray-800 pt-4"><button id="quiz-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Quiz Settings</span><span id="accordion-arrow-3" class="arrow">▼</span></button><div id="quiz-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Click Audio</span><input type="checkbox" id="toggle-quiz-audio"></div><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Double Click</span><input type="checkbox" id="toggle-quiz-double"></div><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Auto Advance</span><input type="checkbox" id="toggle-quiz-autoplay-correct"></div></div></div>
-                <div class="border-t border-gray-100 dark:border-gray-800 pt-4"><button id="sent-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Sentence Settings</span><span id="accordion-arrow-sent" class="arrow">▼</span></button><div id="sent-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Click Audio</span><input type="checkbox" id="toggle-sent-audio"></div></div></div>
-                <div class="border-t border-gray-100 dark:border-gray-800 pt-4"><button id="blanks-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Blanks Settings</span><span id="accordion-arrow-blanks" class="arrow">▼</span></button><div id="blanks-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Click Audio</span><input type="checkbox" id="toggle-blanks-audio"></div><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Double Click</span><input type="checkbox" id="toggle-blanks-double"></div></div></div>
+                <div class="border-t border-gray-100 dark:border-gray-800 pt-4"><button id="quiz-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Quiz Settings</span><span id="accordion-arrow-3" class="arrow">▼</span></button><div id="quiz-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Double Click</span><input type="checkbox" id="toggle-quiz-double"></div><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Auto Advance</span><input type="checkbox" id="toggle-quiz-autoplay-correct"></div></div></div>
+                <div class="border-t border-gray-100 dark:border-gray-800 pt-4"><button id="sent-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Sentence Settings</span><span id="accordion-arrow-sent" class="arrow">▼</span></button><div id="sent-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Win Animation</span><input type="checkbox" id="toggle-sent-anim"></div></div></div>
+                <div class="border-t border-gray-100 dark:border-gray-800 pt-4"><button id="blanks-accordion-btn" class="flex justify-between w-full font-bold dark:text-white text-left items-center py-2"><span>Blanks Settings</span><span id="accordion-arrow-blanks" class="arrow">▼</span></button><div id="blanks-options" class="settings-content space-y-4 px-2 pt-2"><div class="flex justify-between"><span class="text-sm dark:text-gray-300">Double Click</span><input type="checkbox" id="toggle-blanks-double"></div></div></div>
             </div>
             <button id="modal-done-btn" class="w-full mt-8 py-4 bg-indigo-600 text-white font-bold rounded-xl active:scale-95 transition-transform">Done</button>
         </div>

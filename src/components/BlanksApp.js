@@ -12,6 +12,7 @@ export class BlanksApp {
         this.isProcessing = false;
         this.selectedAnswerId = null;
         this.playbackId = 0; 
+        this.currentIndex = 0; 
     }
 
     mount(elementId) { 
@@ -20,11 +21,8 @@ export class BlanksApp {
     }
 
     random() { 
-        this.isProcessing = false;
-        this.selectedAnswerId = null;
-        audioService.stop();
-        this.currentData = blanksService.generateQuestion(null); 
-        this.render(); 
+        this.currentIndex = vocabService.getRandomIndex();
+        this.loadGame();
     }
     
     next(id = null) { 
@@ -32,35 +30,46 @@ export class BlanksApp {
         this.selectedAnswerId = null;
         audioService.stop();
         
-        // SAFEGUARD: Check if service generates valid data
-        const nextData = blanksService.generateQuestion(id);
+        if (id !== null) {
+            const idx = vocabService.findIndexById(id);
+            if (idx !== -1) this.currentIndex = idx;
+        } else {
+            const list = vocabService.getAll();
+            this.currentIndex = (this.currentIndex + 1) % list.length;
+        }
         
-        if (!nextData) {
-            this.currentData = null;
-            this.render();
+        this.loadGame();
+    }
+    
+    prev() { 
+        this.isProcessing = false;
+        audioService.stop();
+        const list = vocabService.getAll();
+        this.currentIndex = (this.currentIndex - 1 + list.length) % list.length;
+        this.loadGame();
+    }
+
+    loadGame() {
+        const list = vocabService.getAll();
+        if (!list || !list.length) { this.renderError(); return; }
+        
+        const targetId = list[this.currentIndex].id;
+        this.currentData = blanksService.generateQuestion(targetId);
+        
+        if (!this.currentData) {
+            console.log("Skipping ID " + targetId);
+            this.renderError(); 
             return;
         }
 
-        this.currentData = nextData;
         if(this.currentData && this.currentData.target && window.saveGameHistory) {
             window.saveGameHistory('blanks', this.currentData.target.id);
         }
         this.render();
     }
-    
-    prev() { 
-        if(this.currentData && this.currentData.target) { 
-            const l=vocabService.getAll(); 
-            const i=vocabService.findIndexById(this.currentData.target.id); 
-            // Wrap index
-            const prevId = l[(i-1+l.length)%l.length].id;
-            this.next(prevId); 
-        } 
-    }
 
     renderError() {
         if (this.container) {
-            // FIX: Graceful error message with a home button
             this.container.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-full pt-20">
                     <div class="text-xl font-bold text-gray-400 mb-4">No Data Available</div>
@@ -72,9 +81,6 @@ export class BlanksApp {
         }
     }
 
-    // ... (Keep existing methods: bind, playBlankedSentence, handleOptionClick, submitAnswer) ...
-    // These methods do not need changes if render() is safe.
-    
     bind(selector, event, handler) {
         if (!this.container) return;
         const el = this.container.querySelector(selector);
@@ -104,6 +110,8 @@ export class BlanksApp {
         if (this.isProcessing || window.wasLongPress) return;
         const settings = settingsService.get();
         const isConfirmationClick = (settings.blanksDoubleClick && this.selectedAnswerId === id);
+        
+        // CHECKED: Audio Toggle Logic (Answer Audio)
         if (!isConfirmationClick && (settings.blanksAnswerAudio || settings.blanksDoubleClick)) {
             audioService.speak(choiceText, settings.targetLang);
         }
@@ -161,29 +169,27 @@ export class BlanksApp {
 
     render() {
         if(!this.container) return;
-        
-        // FIX: Check currentData validity. If null, render error.
         if(!this.currentData || !this.currentData.target) { 
-            this.renderError(); 
+            if (vocabService.getAll().length > 0) {
+                this.loadGame();
+            } else {
+                this.renderError(); 
+            }
             return; 
         }
         
         const { target, choices, sentence, blankedSentence, answerWord } = this.currentData;
         const rawSentence = sentence || blankedSentence || "";
-        
         const s = settingsService.get();
         const originLangKey = `${s.originLang}_ex`; 
-        
-        // Updated translation text logic (previously added)
-        const translationText = target[originLangKey] 
-            || target.back.sentenceOrigin 
-            || target.back.definition 
-            || "";
+        const translationText = target[originLangKey] || target.back.sentenceOrigin || target.back.definition || "";
         
         const pillHtml = `<span class="blank-pill inline-block border-b-2 border-gray-400 dark:border-gray-600 mx-1"><span class="pill-text text-transparent font-bold">${answerWord}</span></span>`;
-        
         const displayHtml = rawSentence.replace(/_+/g, pillHtml);
         
+        // Added text-ja-wrap class
+        const jaClass = settingsService.get().targetLang === 'ja' ? 'text-ja-wrap' : '';
+
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2"><div class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full pl-1 pr-3 py-1 flex items-center shadow-sm"><span class="bg-teal-100 text-teal-600 text-xs font-bold px-2 py-1 rounded-full mr-2">ID</span><input type="number" id="blanks-id-input" class="w-12 bg-transparent border-none text-center font-bold text-gray-700 dark:text-white text-sm p-0" value="${target.id}"></div>
@@ -203,7 +209,7 @@ export class BlanksApp {
                         <span class="text-sm font-bold text-gray-500 dark:text-gray-400" data-fit="true" data-wrap="true" data-type="hint">${translationText}</span>
                     </div>
                     <div class="flex-grow flex items-center justify-center p-4">
-                        <div class="text-2xl md:text-3xl font-medium text-gray-800 dark:text-white text-center leading-relaxed w-full" data-fit="true" data-wrap="true">${displayHtml}</div>
+                        <div class="text-2xl md:text-3xl font-medium text-gray-800 dark:text-white text-center leading-relaxed w-full ${jaClass}" data-fit="true" data-wrap="true">${displayHtml}</div>
                     </div>
                 </div>
                 <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-3">
@@ -217,7 +223,7 @@ export class BlanksApp {
         this.bind('#blanks-prev-btn', 'click', () => this.prev());
         this.bind('#blanks-random-btn', 'click', () => this.random());
         this.bind('#blanks-close-btn', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
-        this.bind('#blanks-id-input', 'change', (e) => { const newId = parseInt(e.target.value); vocabService.findIndexById(newId) !== -1 ? this.next(newId) : alert('ID not found'); });
+        this.bind('#blanks-id-input', 'change', (e) => this.next(parseInt(e.target.value)));
         
         this.bind('#blanks-question-box', 'click', () => {
             if (!this.isProcessing && !window.wasLongPress) {

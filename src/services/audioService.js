@@ -18,10 +18,11 @@ class AudioService {
         if (!text) return "";
         let cleaned = text;
 
-        // Japanese Special Handling: Remove content after middle dot (full or half width)
-        // \u30FB is '・', \uFF65 is '･'
+        // Japanese Special Handling: Stop at ANY separator dot
+        // \u30FB (・), \uFF65 (･), \u2022 (•), . (dot) if surrounded by kanji/kana might be risky but safe for vocab list
         if (lang && (lang === 'ja' || lang === 'ja-JP')) {
-            const parts = cleaned.split(/[\u30FB\uFF65]/);
+            // Split on Middle Dot (Full/Half), Bullet, or slash
+            const parts = cleaned.split(/[\u30FB\uFF65\u2022\/]/);
             if (parts.length > 0) {
                 cleaned = parts[0];
             }

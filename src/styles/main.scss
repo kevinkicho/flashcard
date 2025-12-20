@@ -7,18 +7,15 @@
 
 /* --- TARGETED FIXES --- */
 
-/* Standard reset for clickable elements */
 button, a, input, [role="button"] {
     -webkit-tap-highlight-color: transparent;
 }
 
-/* Custom utility to force-remove highlight on specific containers */
 .no-tap-highlight {
     -webkit-tap-highlight-color: transparent !important;
     outline: none !important;
 }
 
-/* Custom Base Styles */
 body {
     font-family: 'Noto Sans JP', sans-serif;
     overscroll-behavior: none;
@@ -26,7 +23,6 @@ body {
     touch-action: manipulation;
 }
 
-/* Icon Button Fix */
 .header-icon-btn {
     display: flex !important;
     align-items: center !important;
@@ -58,7 +54,6 @@ body {
     animation: fadeInUp 0.5s ease-out forwards;
 }
 
-/* Funky Animations */
 @keyframes slideDownBounce {
     0% { transform: translate(-50%, -150%) scale(0.5); opacity: 0; }
     60% { transform: translate(-50%, 20%) scale(1.1); opacity: 1; }
@@ -75,6 +70,18 @@ body {
 @keyframes shimmer {
     0% { transform: translateX(-100%) skewX(-15deg); }
     100% { transform: translateX(200%) skewX(-15deg); }
+}
+
+/* NOBLE/DIGNIFIED WIN ANIMATION */
+@keyframes celebrateRoyal {
+    0% { border-color: transparent; box-shadow: none; }
+    30% { border-color: #fbbf24; box-shadow: 0 0 25px rgba(251, 191, 36, 0.4), inset 0 0 10px rgba(251, 191, 36, 0.2); }
+    70% { border-color: #f59e0b; box-shadow: 0 0 40px rgba(245, 158, 11, 0.6), inset 0 0 20px rgba(245, 158, 11, 0.3); }
+    100% { border-color: transparent; box-shadow: none; }
+}
+
+.animate-celebrate {
+    animation: celebrateRoyal 1.2s ease-in-out;
 }
 
 #achievement-popup {
@@ -116,37 +123,6 @@ body {
 }
 .dark .chart-bar { background: #374151; }
 
-.chart-breakdown {
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%) translateY(-5px);
-    background: rgba(17, 24, 39, 0.95);
-    padding: 8px 10px;
-    border-radius: 8px;
-    font-size: 11px;
-    font-weight: 700;
-    white-space: nowrap;
-    z-index: 50;
-    pointer-events: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    display: none;
-    flex-direction: column;
-    gap: 3px;
-    border: 1px solid rgba(255,255,255,0.1);
-}
-.chart-breakdown.visible { display: flex; }
-.chart-breakdown::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    margin-left: -4px;
-    border-width: 4px;
-    border-style: solid;
-    border-color: rgba(17, 24, 39, 0.95) transparent transparent transparent;
-}
-
 .text-fc { color: #818cf8; }
 .text-qz { color: #c084fc; }
 .text-st { color: #f472b6; }
@@ -157,3 +133,10 @@ body {
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #4b5563; }
+
+/* Japanese Text Optimization */
+.text-ja-wrap {
+    word-break: keep-all; /* Keeps words together */
+    overflow-wrap: anywhere; /* Allows breaking long strings if necessary */
+    line-break: strict; /* Strict rules for punctuation */
+}

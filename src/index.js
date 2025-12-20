@@ -112,41 +112,64 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginBtn = document.getElementById('user-login-btn');
     if (loginBtn) loginBtn.addEventListener('click', async () => { if (currentUser && !currentUser.isAnonymous) { if(confirm("Log out?")) await signOut(auth); } else { try { await signInWithPopup(auth, googleProvider); } catch(e){} } });
 
+    // FIXED: Toggle HIDDEN class properly
     function updateEditPermissions() { 
         const isAdmin = currentUser && currentUser.email === 'kevinkicho@gmail.com'; 
-        const btns = document.querySelectorAll('#btn-save-vocab, .btn-save-dict, #btn-add-dict');
+        const btns = document.querySelectorAll('#btn-save-vocab, #btn-save-dict, #btn-add-dict');
         btns.forEach(btn => { 
-            if(btn.id === 'btn-add-dict') btn.style.display = isAdmin ? 'block' : 'none'; 
-            else { 
-                btn.disabled = !isAdmin; 
-                btn.style.display = isAdmin ? 'block' : 'none'; 
-            } 
+            if (isAdmin) {
+                btn.classList.remove('hidden');
+                btn.disabled = false;
+            } else {
+                btn.classList.add('hidden');
+                btn.disabled = true;
+            }
         });
     }
 
+    // FIXED: Render Inputs for Admin, Text for Users
     window.renderVocabEditFields = (data) => {
         const container = document.getElementById('edit-vocab-fields');
         const idLabel = document.getElementById('edit-vocab-id');
         if (idLabel) idLabel.textContent = `ID: ${data.id}`;
         
+        // Store the Firebase Key on the container for the save button to find
+        container.dataset.fbKey = data.firebaseKey || '';
+
         if (!container) return;
         container.innerHTML = '';
         
+        const isAdmin = currentUser && currentUser.email === 'kevinkicho@gmail.com';
         const fields = ['ja', 'ja_furi', 'en', 'ja_ex', 'en_ex', 'zh', 'ko'];
         
         fields.forEach(key => {
             const val = data[key] || '';
+            let content;
+            
+            if (isAdmin) {
+                // Admin: Editable Inputs
+                content = `
+                    <input class="vocab-input w-full bg-gray-100 dark:bg-gray-800 border-none rounded-lg p-3 text-gray-800 dark:text-white font-medium focus:ring-2 ring-indigo-500 outline-none" 
+                           data-key="${key}" value="${val}">
+                `;
+            } else {
+                // User: Read Only
+                content = `
+                    <div class="w-full bg-transparent border-b border-gray-200 dark:border-gray-700 py-2 text-gray-700 dark:text-gray-300 font-medium select-text">
+                        ${val || '<span class="text-gray-400 italic">Empty</span>'}
+                    </div>
+                `;
+            }
+
             const fieldHTML = `
                 <div>
                     <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">${key}</label>
-                    <input class="w-full bg-gray-100 dark:bg-gray-800 border-none rounded-lg p-3 text-gray-800 dark:text-white font-medium focus:ring-2 ring-indigo-500 outline-none" 
-                           data-key="${key}" value="${val}">
+                    ${content}
                 </div>`;
             container.insertAdjacentHTML('beforeend', fieldHTML);
         });
     }
 
-    // UPDATED: Dictionary List with Audio Playback
     window.populateDictionaryEdit = (text) => {
          const list = document.getElementById('edit-dict-list');
          if(!list) return;
@@ -156,37 +179,113 @@ document.addEventListener('DOMContentLoaded', () => {
          }
          
          const results = dictionaryService.lookupText(text);
-         
          if (results.length === 0) {
              list.innerHTML = `<div class="text-gray-400 text-sm italic p-2">No dictionary entries found for characters in this card.</div>`;
              return;
          }
 
+         const isAdmin = currentUser && currentUser.email === 'kevinkicho@gmail.com';
          let html = '';
+
          results.forEach(entry => {
-             // UPDATED: Added onclick to play audio specifically in Chinese
-             html += `
-                <div class="flex items-start gap-4 p-3 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer active:scale-95 transition-transform" 
-                     onclick="window.playDictAudio('${entry.s}')">
-                    <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400 font-serif">${entry.s}</div>
-                    <div class="flex-1">
-                        <div class="flex gap-2 items-baseline mb-1">
-                            <span class="text-lg font-bold text-gray-800 dark:text-white">${entry.p}</span>
-                            ${entry.t && entry.t !== entry.s ? `<span class="text-xs text-gray-400">(${entry.t})</span>` : ''}
+             if (isAdmin) {
+                 html += `
+                    <div class="p-3 border-b border-gray-100 dark:border-gray-700 last:border-0 dict-edit-row" data-fb-key="${entry.firebaseKey}">
+                        <div class="flex gap-2 mb-2">
+                            <input class="dict-input w-16 bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-xl font-bold text-indigo-600" data-field="s" value="${entry.s}" placeholder="Char">
+                            <input class="dict-input w-full bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-sm" data-field="p" value="${entry.p}" placeholder="Pinyin">
                         </div>
-                        <div class="text-sm text-gray-600 dark:text-gray-300 leading-snug">${entry.e}</div>
-                        ${entry.ko ? `<div class="text-xs text-indigo-500 mt-1 font-medium">${entry.ko}</div>` : ''}
+                        <div class="flex gap-2 mb-2">
+                            <input class="dict-input w-full bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-sm" data-field="t" value="${entry.t}" placeholder="Traditional">
+                            <input class="dict-input w-full bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-sm" data-field="ko" value="${entry.ko}" placeholder="Korean">
+                        </div>
+                        <textarea class="dict-input w-full bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-sm h-16" data-field="e" placeholder="English">${entry.e}</textarea>
                     </div>
-                </div>
-             `;
+                 `;
+             } else {
+                 html += `
+                    <div class="flex items-start gap-4 p-3 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer active:scale-95 transition-transform" 
+                         onclick="window.playDictAudio('${entry.s}')">
+                        <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400 font-serif">${entry.s}</div>
+                        <div class="flex-1">
+                            <div class="flex gap-2 items-baseline mb-1">
+                                <span class="text-lg font-bold text-gray-800 dark:text-white">${entry.p}</span>
+                                ${entry.t && entry.t !== entry.s ? `<span class="text-xs text-gray-400">(${entry.t})</span>` : ''}
+                            </div>
+                            <div class="text-sm text-gray-600 dark:text-gray-300 leading-snug">${entry.e}</div>
+                            ${entry.ko ? `<div class="text-xs text-indigo-500 mt-1 font-medium">${entry.ko}</div>` : ''}
+                        </div>
+                    </div>
+                 `;
+             }
          });
          list.innerHTML = html;
     }
 
-    // Expose audio player globally for the generated HTML above
     window.playDictAudio = (text) => {
         audioService.speak(text, 'zh-CN');
     };
+
+    // --- SAVE LOGIC ---
+
+    // 1. Save Dictionary
+    const saveDictBtn = document.getElementById('btn-save-dict');
+    if(saveDictBtn) {
+        saveDictBtn.addEventListener('click', async () => {
+            const rows = document.querySelectorAll('.dict-edit-row');
+            if(rows.length === 0) return;
+            saveDictBtn.innerText = "Saving...";
+            saveDictBtn.disabled = true;
+            try {
+                const updates = [];
+                rows.forEach(row => {
+                    const key = row.dataset.fbKey;
+                    if(!key) return;
+                    const getVal = (f) => row.querySelector(`[data-field="${f}"]`).value;
+                    updates.push(dictionaryService.saveEntry(key, {
+                        s: getVal('s'), t: getVal('t'), p: getVal('p'), e: getVal('e'), ko: getVal('ko')
+                    }));
+                });
+                await Promise.all(updates);
+                alert("Dictionary saved!");
+            } catch(e) { console.error(e); alert("Error."); } 
+            finally { saveDictBtn.innerText = "SAVE DICTIONARY"; saveDictBtn.disabled = false; }
+        });
+    }
+
+    // 2. Save Vocabulary (NEW)
+    const saveVocabBtn = document.getElementById('btn-save-vocab');
+    if(saveVocabBtn) {
+        saveVocabBtn.addEventListener('click', async () => {
+            const container = document.getElementById('edit-vocab-fields');
+            const firebaseKey = container.dataset.fbKey;
+            
+            if(!firebaseKey) {
+                alert("Error: Missing Record ID");
+                return;
+            }
+
+            saveVocabBtn.innerText = "Saving...";
+            saveVocabBtn.disabled = true;
+
+            try {
+                const inputs = container.querySelectorAll('.vocab-input');
+                const data = {};
+                inputs.forEach(input => {
+                    data[input.dataset.key] = input.value;
+                });
+
+                await vocabService.saveItem(firebaseKey, data);
+                alert("Vocabulary saved!");
+            } catch(e) {
+                console.error(e);
+                alert("Error saving vocabulary.");
+            } finally {
+                saveVocabBtn.innerText = "SAVE VOCAB";
+                saveVocabBtn.disabled = false;
+            }
+        });
+    }
 
     function renderView(viewName) { 
         audioService.stop(); 

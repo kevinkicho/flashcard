@@ -1,4 +1,4 @@
-import { db, ref, get, child } from './firebase';
+import { db, ref, get, child, update } from './firebase'; // Added 'update'
 import { settingsService } from './settingsService';
 
 class VocabService {
@@ -20,10 +20,19 @@ class VocabService {
             const snapshot = await get(child(dbRef, 'vocab'));
             
             if (snapshot.exists()) {
-                const data = snapshot.val();
-                let rawList = Array.isArray(data) ? data : Object.values(data);
+                const list = [];
                 
-                this.vocabList = rawList
+                // UPDATED: Use forEach to capture the Firebase Key
+                snapshot.forEach(childSnap => {
+                    const val = childSnap.val();
+                    if (val) {
+                        // Attach the key so we know where to save later
+                        val.firebaseKey = childSnap.key; 
+                        list.push(val);
+                    }
+                });
+                
+                this.vocabList = list
                     .filter(item => item && item.id !== undefined)
                     .map(item => {
                         const id = parseInt(item.id);
@@ -44,7 +53,6 @@ class VocabService {
                             const sentO = item.en_ex || "";
                             backObj = { main: def, definition: def, sentenceTarget: sentT, sentenceOrigin: sentO };
                         } else {
-                             // Fallback if back exists but main is missing
                              if (!backObj.main) backObj.main = backObj.definition || item.en || "???";
                         }
 
@@ -56,9 +64,9 @@ class VocabService {
                         };
                     });
 
-                console.log(`VocabService: Loaded and Mapped ${this.vocabList.length} items.`);
+                console.log(`VocabService: Loaded ${this.vocabList.length} items.`);
             } else {
-                console.warn("VocabService: No data found in Firebase.");
+                console.warn("VocabService: No data found.");
                 this.vocabList = [];
             }
         } catch (error) {
@@ -67,6 +75,38 @@ class VocabService {
         } finally {
             this.isLoaded = true;
             this.notify();
+        }
+    }
+
+    // NEW: Save method
+    async saveItem(firebaseKey, data) {
+        if (!firebaseKey) {
+            console.error("VocabService: No key provided for save");
+            return;
+        }
+        
+        try {
+            const updates = {};
+            // Map the simple data object back to Firebase paths
+            // data = { ja: "...", en: "..." } -> vocab/KEY/ja
+            Object.keys(data).forEach(field => {
+                updates[`vocab/${firebaseKey}/${field}`] = data[field];
+            });
+
+            await update(ref(db), updates);
+            
+            // Update local cache immediately to reflect changes without full reload
+            const localItem = this.vocabList.find(i => i.firebaseKey === firebaseKey);
+            if (localItem) {
+                Object.assign(localItem, data);
+                // Re-run basic mapping for front/back so the UI updates
+                if(data[settingsService.get().targetLang]) localItem.front.main = data[settingsService.get().targetLang];
+                this.notify();
+            }
+            console.log(`VocabService: Saved item ${firebaseKey}`);
+        } catch (e) {
+            console.error("VocabService: Save Failed", e);
+            throw e;
         }
     }
 

@@ -1,5 +1,5 @@
 import { db } from './firebase'; 
-import { ref, get, child } from 'firebase/database';
+import { ref, get, child, update } from 'firebase/database';
 
 class DictionaryService {
     constructor() {
@@ -15,13 +15,15 @@ class DictionaryService {
             const snapshot = await get(child(dbRef, 'dictionary'));
             
             if (snapshot.exists()) {
-                const val = snapshot.val();
-                const list = Array.isArray(val) ? val : Object.values(val);
-
-                list.forEach(item => {
+                // Use forEach to preserve the Firebase Key (index or ID)
+                snapshot.forEach(childSnapshot => {
+                    const key = childSnapshot.key;
+                    const item = childSnapshot.val();
+                    
                     if (!item) return;
-                    // Robust mapping: handle potential missing keys gracefully
+
                     const entry = { 
+                        firebaseKey: key, // Store key for updates
                         id: item.id || '',
                         s: item.s || item.simplified || '', 
                         t: item.t || item.traditional || (item.s || ''), 
@@ -51,7 +53,6 @@ class DictionaryService {
         if (!text || !this.isInitialized) return [];
         const results = [];
         const seen = new Set();
-        // Match Chinese characters (adjust regex if you need to match Kana/Hangul too)
         const regex = /[\u4E00-\u9FFF]/g;
         const matches = text.match(regex);
 
@@ -67,6 +68,32 @@ class DictionaryService {
             });
         }
         return results;
+    }
+
+    // NEW: Update an entry in Firebase
+    async saveEntry(key, data) {
+        if (!key) return;
+        try {
+            const updates = {};
+            // Map internal keys back to DB keys (s, t, p, e, k)
+            updates[`dictionary/${key}/s`] = data.s;
+            updates[`dictionary/${key}/t`] = data.t;
+            updates[`dictionary/${key}/p`] = data.p;
+            updates[`dictionary/${key}/e`] = data.e;
+            updates[`dictionary/${key}/k`] = data.ko;
+            // Also update traditional/simplified aliases if needed, but usually s/t/p/e/k is enough
+            
+            await update(ref(db), updates);
+            
+            // Update local index to reflect changes immediately
+            if (this.index[data.s]) {
+                Object.assign(this.index[data.s], { ...data, firebaseKey: key });
+            }
+            console.log(`[Dictionary] Saved entry ${key}`);
+        } catch (e) {
+            console.error("[Dictionary] Save failed:", e);
+            throw e;
+        }
     }
 }
 export const dictionaryService = new DictionaryService();

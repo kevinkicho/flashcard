@@ -43,6 +43,7 @@ export class MatchApp {
         const card = this.cards[idx];
         if (card.matched) return;
 
+        // Audio plays on click
         if (settingsService.get().clickAudio && card.text) {
             const lang = card.type === 'target' ? settingsService.get().targetLang : settingsService.get().originLang;
             audioService.speak(card.text, lang);
@@ -141,7 +142,10 @@ export class MatchApp {
         this.container.querySelector('#match-random-btn').addEventListener('click', () => this.startNewGame());
         this.container.querySelectorAll('.match-card').forEach(btn => btn.addEventListener('click', (e) => this.handleCardClick(parseInt(e.currentTarget.dataset.index), e.currentTarget)));
         
-        requestAnimationFrame(() => textService.fitGroup(this.container.querySelectorAll('.card-text'), 14, 50));
+        // FIXED: Using fitText instead of fitGroup to allow distinct sizing for legibility
+        requestAnimationFrame(() => {
+            this.container.querySelectorAll('.card-text').forEach(el => textService.fitText(el, 14, 50));
+        });
     }
 }
 export const matchApp = new MatchApp();

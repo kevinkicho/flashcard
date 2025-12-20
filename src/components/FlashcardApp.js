@@ -21,6 +21,13 @@ export class FlashcardApp {
         this.render();
     }
 
+    // Helper to safely add event listeners
+    bind(selector, event, handler) {
+        if (!this.container) return;
+        const el = this.container.querySelector(selector);
+        if (el) el.addEventListener(event, (e) => { e.stopPropagation(); handler(e); });
+    }
+
     refresh() {
         this.render();
     }
@@ -122,7 +129,7 @@ export class FlashcardApp {
                                 <button class="audio-btn p-2 text-gray-400 hover:text-indigo-500 transition-colors bg-gray-50 dark:bg-gray-800 rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></button>
                             </div>
                             
-                            <div class="flex-grow flex flex-col items-center justify-center p-4">
+                            <div class="flex-grow flex flex-col items-center justify-center p-4 overflow-hidden">
                                 <h2 class="fc-front-text font-black text-gray-800 dark:text-white text-center leading-tight whitespace-nowrap" data-fit="true">${front.main}</h2>
                                 ${front.sub ? `<p class="fc-front-sub font-medium text-gray-500 dark:text-gray-400 mt-4 text-center whitespace-nowrap" data-fit="true">${front.sub}</p>` : ''}
                             </div>
@@ -136,13 +143,13 @@ export class FlashcardApp {
                                 <button class="audio-btn p-2 text-gray-400 hover:text-purple-500 transition-colors bg-white dark:bg-dark-card rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></button>
                             </div>
 
-                            <div class="flex-grow flex flex-col items-center justify-center text-center space-y-6">
+                            <div class="flex-grow flex flex-col items-center justify-center text-center space-y-6 overflow-hidden">
                                 <h2 class="fc-back-text font-black text-indigo-600 dark:text-indigo-400 leading-none whitespace-nowrap" data-fit="true">${back.main}</h2>
                                 
                                 ${back.sentenceTarget && s.showSentence ? `
                                     <div class="w-full p-4 bg-white dark:bg-dark-card rounded-xl border border-gray-100 dark:border-dark-border">
-                                        <p class="fc-back-sent text-gray-700 dark:text-white font-bold mb-2 leading-tight" data-fit="true">${back.sentenceTarget}</p>
-                                        ${back.sentenceOrigin && s.showEnglish ? `<p class="fc-back-sent-trans text-gray-500 dark:text-gray-400 font-medium leading-tight" data-fit="true">${back.sentenceOrigin}</p>` : ''}
+                                        <p class="fc-back-sent text-gray-700 dark:text-white font-bold mb-2 leading-tight whitespace-nowrap" data-fit="true">${back.sentenceTarget}</p>
+                                        ${back.sentenceOrigin && s.showEnglish ? `<p class="fc-back-sent-trans text-gray-500 dark:text-gray-400 font-medium leading-tight whitespace-nowrap" data-fit="true">${back.sentenceOrigin}</p>` : ''}
                                     </div>
                                 ` : ''}
                             </div>
@@ -163,18 +170,28 @@ export class FlashcardApp {
             </div>
         `;
 
-        this.container.querySelector('#fc-close-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
-        this.container.querySelector('#flashcard-container').addEventListener('click', () => this.handleCardClick());
-        this.container.querySelector('#fc-prev-btn').addEventListener('click', (e) => { e.stopPropagation(); this.prev(); });
-        this.container.querySelector('#fc-next-btn').addEventListener('click', (e) => { e.stopPropagation(); this.next(); });
-        this.container.querySelectorAll('.audio-btn').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); this.playAudio(); }));
+        // Safe Bindings
+        this.bind('#fc-close-btn', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
+        this.bind('#flashcard-container', 'click', () => this.handleCardClick());
+        this.bind('#fc-prev-btn', 'click', () => this.prev());
+        this.bind('#fc-next-btn', 'click', () => this.next());
+        
+        this.container.querySelectorAll('.audio-btn').forEach(btn => 
+            btn.addEventListener('click', (e) => { e.stopPropagation(); this.playAudio(); })
+        );
         
         const idInput = this.container.querySelector('#fc-id-input');
-        const goBtn = this.container.querySelector('#fc-go-btn');
-        goBtn.addEventListener('click', (e) => { e.stopPropagation(); this.goto(idInput.value); });
-        idInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') this.goto(idInput.value); });
-        idInput.addEventListener('click', (e) => e.stopPropagation());
+        if(idInput) {
+            idInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') this.goto(idInput.value); });
+            idInput.addEventListener('click', (e) => e.stopPropagation());
+        }
+        
+        this.bind('#fc-go-btn', 'click', () => {
+            const val = this.container.querySelector('#fc-id-input').value;
+            this.goto(val);
+        });
 
+        // Apply Text Fitting
         requestAnimationFrame(() => {
             textService.fitText(this.container.querySelector('.fc-front-text'), 32, 130);
             textService.fitText(this.container.querySelector('.fc-back-text'), 24, 90);

@@ -19,6 +19,12 @@ export class ListeningApp {
         else this.render();
     }
 
+    bind(selector, event, handler) {
+        if (!this.container) return;
+        const el = this.container.querySelector(selector);
+        if (el) el.addEventListener(event, handler);
+    }
+
     random() {
         this.currentIndex = vocabService.getRandomIndex();
         this.loadGame();
@@ -65,7 +71,6 @@ export class ListeningApp {
         if (this.isProcessing) return;
         this.isProcessing = true;
         
-        // Play Audio of Choice (Target)
         const chosenItem = this.currentData.choices.find(c => c.id === id);
         if (chosenItem) audioService.speak(chosenItem.front.main, settingsService.get().targetLang);
 
@@ -133,17 +138,19 @@ export class ListeningApp {
                 <div class="grid grid-cols-1 gap-2 pb-8">
                     ${choices.map(c => `
                         <button class="choice-btn bg-white dark:bg-dark-card border-2 border-gray-100 dark:border-dark-border p-3 rounded-2xl shadow-sm hover:shadow-md text-xl font-bold text-gray-700 dark:text-white transition-all active:scale-98 text-left h-20 flex items-center overflow-hidden" data-id="${c.id}">
-                            <span class="w-full px-2 leading-relaxed" data-fit="true">${getLabel(c)}</span>
+                            <span class="choice-text w-full px-2 leading-relaxed">${getLabel(c)}</span>
                         </button>
                     `).join('')}
                 </div>
             </div>
         `;
-        this.container.querySelector('#listening-play-btn').addEventListener('click', () => this.playAudio());
-        this.container.querySelector('#listening-close-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
-        this.container.querySelector('#listening-random-btn').addEventListener('click', () => this.random());
+        
+        this.bind('#listening-play-btn', 'click', () => this.playAudio());
+        this.bind('#listening-close-btn', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
+        this.bind('#listening-random-btn', 'click', () => this.random());
         this.container.querySelectorAll('.choice-btn').forEach(btn => btn.addEventListener('click', (e) => this.handleChoice(parseInt(e.currentTarget.dataset.id), e.currentTarget)));
-        requestAnimationFrame(() => this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
+        
+        requestAnimationFrame(() => textService.fitGroup(this.container.querySelectorAll('.choice-text'), 16, 28));
     }
 }
 export const listeningApp = new ListeningApp();

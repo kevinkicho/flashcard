@@ -5,18 +5,8 @@ class TextService {
         if (!text) return [];
         
         // "Poor Man's Tokenizer" - Split on script boundaries
-        // 1. Punctuation/Space (Keep delimiters)
-        // 2. Switch between Kanji/Kana/Latin/Digit
-        
-        // Replace punctuation with spaced versions to force split later
         let processed = text.replace(/([。、！？\s]+)/g, ' $1 ');
         
-        // Regex lookbehinds/lookaheads to split between different script blocks
-        // Kanji: \u4E00-\u9FAF
-        // Hiragana: \u3040-\u309F
-        // Katakana: \u30A0-\u30FF
-        
-        // Insert spaces between script changes if no space exists
         // Kanji <-> Kana
         processed = processed.replace(/([\u4E00-\u9FAF])([\u3040-\u309F\u30A0-\u30FF])/g, '$1 $2');
         processed = processed.replace(/([\u3040-\u309F\u30A0-\u30FF])([\u4E00-\u9FAF])/g, '$1 $2');
@@ -28,16 +18,10 @@ class TextService {
         return processed.split(/\s+/).filter(t => t.trim().length > 0);
     }
 
-    // Auto-fit text logic
-    fitText(el) {
-        if (!el || !el.parentElement) return;
+    _calculateBestFit(el, min, max) {
+        if (!el || !el.parentElement) return min;
 
-        el.style.fontSize = '';
-        el.style.lineHeight = '1.1'; // Tighter line height for bigger text
-        el.style.whiteSpace = 'normal';
-        
         const parent = el.parentElement;
-        // Account for parent padding
         const style = window.getComputedStyle(parent);
         const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
         const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
@@ -45,10 +29,14 @@ class TextService {
         const parentW = parent.clientWidth - padX;
         const parentH = parent.clientHeight - padY;
         
-        if (parentW <= 0 || parentH <= 0) return;
+        if (parentW <= 0 || parentH <= 0) return min;
 
-        let min = 10;
-        let max = 200; // Allow it to go quite big
+        const originalSize = el.style.fontSize;
+        const originalLineHeight = el.style.lineHeight;
+        const originalWhiteSpace = el.style.whiteSpace;
+
+        el.style.whiteSpace = 'normal';
+        el.style.lineHeight = '1.1';
         
         let best = min;
         let low = min;
@@ -59,10 +47,7 @@ class TextService {
             const mid = Math.floor((low + high) / 2);
             el.style.fontSize = `${mid}px`;
             
-            const scrollW = el.scrollWidth;
-            const scrollH = el.scrollHeight;
-
-            if (scrollW <= parentW && scrollH <= parentH) {
+            if (el.scrollWidth <= parentW && el.scrollHeight <= parentH) {
                 best = mid;
                 low = mid + 1;
             } else {
@@ -71,8 +56,38 @@ class TextService {
             iterations++;
         }
 
-        // Apply slight safety margin
-        el.style.fontSize = `${Math.max(best - 1, min)}px`;
+        el.style.fontSize = originalSize;
+        el.style.lineHeight = originalLineHeight;
+        el.style.whiteSpace = originalWhiteSpace;
+
+        return Math.max(best - 1, min);
+    }
+
+    fitText(el, min = 12, max = 200) {
+        if (!el) return; // Safety Check
+        const size = this._calculateBestFit(el, min, max);
+        el.style.fontSize = `${size}px`;
+        el.style.lineHeight = '1.1';
+        el.style.whiteSpace = 'normal';
+    }
+
+    fitGroup(elements, min = 12, max = 32) {
+        if (!elements || elements.length === 0) return;
+
+        let minSizeFound = max;
+
+        elements.forEach(el => {
+            const bestForEl = this._calculateBestFit(el, min, max);
+            if (bestForEl < minSizeFound) {
+                minSizeFound = bestForEl;
+            }
+        });
+
+        elements.forEach(el => {
+            el.style.fontSize = `${minSizeFound}px`;
+            el.style.lineHeight = '1.1';
+            el.style.whiteSpace = 'normal';
+        });
     }
 
     smartWrap(text) {

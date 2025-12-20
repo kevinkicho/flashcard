@@ -111,7 +111,6 @@ export class BlanksApp {
         const settings = settingsService.get();
         const isConfirmationClick = (settings.blanksDoubleClick && this.selectedAnswerId === id);
         
-        // CHECKED: Audio Toggle Logic (Answer Audio)
         if (!isConfirmationClick && (settings.blanksAnswerAudio || settings.blanksDoubleClick)) {
             audioService.speak(choiceText, settings.targetLang);
         }
@@ -187,7 +186,6 @@ export class BlanksApp {
         const pillHtml = `<span class="blank-pill inline-block border-b-2 border-gray-400 dark:border-gray-600 mx-1"><span class="pill-text text-transparent font-bold">${answerWord}</span></span>`;
         const displayHtml = rawSentence.replace(/_+/g, pillHtml);
         
-        // Added text-ja-wrap class
         const jaClass = settingsService.get().targetLang === 'ja' ? 'text-ja-wrap' : '';
 
         this.container.innerHTML = `
@@ -206,14 +204,14 @@ export class BlanksApp {
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div id="blanks-question-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-4 flex flex-col relative cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                     <div class="w-full py-2 px-1 text-center flex-none min-h-[3rem] flex items-center justify-center">
-                        <span class="text-sm font-bold text-gray-500 dark:text-gray-400" data-fit="true" data-wrap="true" data-type="hint">${translationText}</span>
+                        <span class="question-text text-sm font-bold text-gray-500 dark:text-gray-400">${translationText}</span>
                     </div>
                     <div class="flex-grow flex items-center justify-center p-4">
-                        <div class="text-2xl md:text-3xl font-medium text-gray-800 dark:text-white text-center leading-relaxed w-full ${jaClass}" data-fit="true" data-wrap="true">${displayHtml}</div>
+                        <div class="sentence-text text-2xl md:text-3xl font-medium text-gray-800 dark:text-white text-center leading-relaxed w-full ${jaClass}">${displayHtml}</div>
                     </div>
                 </div>
                 <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-3">
-                    ${choices.map(c => `<button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex items-center justify-center" data-id="${c.id}"><div class="text-lg font-bold text-gray-700 dark:text-white text-center" data-fit="true">${c.front.main}</div></button>`).join('')}
+                    ${choices.map(c => `<button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex items-center justify-center" data-id="${c.id}"><div class="option-text text-lg font-bold text-gray-700 dark:text-white text-center">${c.front.main}</div></button>`).join('')}
                 </div>
             </div>
             <div class="fixed bottom-0 left-0 right-0 p-6 z-40 bg-gradient-to-t from-gray-100 via-gray-100 to-transparent dark:from-dark-bg"><div class="max-w-md mx-auto flex gap-4"><button id="blanks-prev-btn" class="flex-1 h-16 bg-white border border-gray-200 rounded-3xl shadow-sm flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg></button><button id="blanks-next-btn" class="flex-1 h-16 bg-indigo-600 text-white rounded-3xl shadow-xl flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg></button></div></div>
@@ -233,11 +231,15 @@ export class BlanksApp {
         });
 
         this.container.querySelectorAll('.quiz-option').forEach(btn => btn.addEventListener('click', (e) => {
-            const text = btn.querySelector('[data-fit="true"]').innerText;
+            const text = btn.querySelector('.option-text').innerText;
             this.handleOptionClick(parseInt(e.currentTarget.dataset.id), e.currentTarget, text);
         }));
         
-        requestAnimationFrame(() => this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
+        requestAnimationFrame(() => {
+            textService.fitText(this.container.querySelector('.question-text'), 12, 18);
+            textService.fitText(this.container.querySelector('.sentence-text'), 18, 42);
+            textService.fitGroup(this.container.querySelectorAll('.option-text'), 14, 32);
+        });
 
         if (settingsService.get().autoPlay) {
             setTimeout(() => this.playBlankedSentence(), 300);

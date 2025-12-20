@@ -18,6 +18,12 @@ export class MatchApp {
         this.startNewGame();
     }
 
+    bind(selector, event, handler) {
+        if (!this.container) return;
+        const el = this.container.querySelector(selector);
+        if (el) el.addEventListener(event, handler);
+    }
+
     startNewGame() {
         this.isProcessing = false;
         this.selectedCard = null;
@@ -43,14 +49,12 @@ export class MatchApp {
         const card = this.cards[idx];
         if (card.matched) return;
 
-        // Deselect if clicking same card
         if (this.selectedCard && this.selectedCard.idx === idx) {
             el.classList.remove('ring-4', 'ring-indigo-400', 'scale-105', 'bg-indigo-50', 'dark:bg-indigo-900/30');
             this.selectedCard = null;
-            return; // No audio on deselect
+            return; 
         }
 
-        // Play audio on FIRST click (Selection)
         if (settingsService.get().clickAudio) {
             const lang = card.type === 'target' ? settingsService.get().targetLang : settingsService.get().originLang;
             audioService.speak(card.text, lang);
@@ -65,7 +69,6 @@ export class MatchApp {
             const first = this.selectedCard;
             
             if (first.pairId === card.pairId) {
-                // Correct
                 this.matchesFound++;
                 scoreService.addScore('match', 10);
                 
@@ -85,19 +88,17 @@ export class MatchApp {
                 if (this.matchesFound === 6) setTimeout(() => this.startNewGame(), 500);
 
             } else {
-                // Wrong
                 first.el.classList.remove('ring-indigo-400'); el.classList.remove('ring-indigo-400');
                 first.el.classList.add('bg-red-100', 'dark:bg-red-900/30', 'shake');
                 el.classList.add('bg-red-100', 'dark:bg-red-900/30', 'shake');
 
-                // Reveal logic: Briefly highlight the ACTUAL partner of the first card if available
                 const partnerIdx = this.cards.findIndex(c => c.pairId === first.pairId && c.type !== first.type);
                 if(partnerIdx !== -1) {
                     const partnerBtn = this.container.querySelector(`[data-index="${partnerIdx}"]`);
                     if(partnerBtn) partnerBtn.classList.add('ring-4', 'ring-yellow-400');
                 }
 
-                await new Promise(r => setTimeout(r, 800)); // Longer wait to see reveal
+                await new Promise(r => setTimeout(r, 800)); 
                 
                 first.el.classList.remove('ring-4', 'scale-105', 'bg-indigo-50', 'dark:bg-indigo-900/30', 'bg-red-100', 'dark:bg-red-900/30', 'shake');
                 el.classList.remove('ring-4', 'scale-105', 'bg-indigo-50', 'dark:bg-indigo-900/30', 'bg-red-100', 'dark:bg-red-900/30', 'shake');
@@ -135,17 +136,19 @@ export class MatchApp {
                 <div class="grid grid-cols-3 gap-2 h-full content-center">
                     ${this.cards.map((c, i) => `
                         <button class="match-card relative w-full aspect-square bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-dark-border rounded-xl shadow-sm flex items-center justify-center p-1 transition-all duration-200 overflow-hidden ${c.matched ? 'opacity-0 pointer-events-none' : 'hover:scale-105 active:scale-95'}" data-index="${i}">
-                            <span class="font-bold text-gray-700 dark:text-white text-center leading-tight whitespace-nowrap" data-fit="true">${c.text}</span>
+                            <span class="card-text font-bold text-gray-700 dark:text-white text-center leading-tight whitespace-nowrap">${c.text}</span>
                         </button>
                     `).join('')}
                 </div>
             </div>
             <style>.shake{animation:shake 0.4s cubic-bezier(.36,.07,.19,.97) both}@keyframes shake{10%,90%{transform:translate3d(-1px,0,0)}20%,80%{transform:translate3d(2px,0,0)}30%,50%,70%{transform:translate3d(-4px,0,0)}40%,60%{transform:translate3d(4px,0,0)}}</style>
         `;
-        this.container.querySelector('#match-close-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
-        this.container.querySelector('#match-random-btn').addEventListener('click', () => this.startNewGame());
+        
+        this.bind('#match-close-btn', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
+        this.bind('#match-random-btn', 'click', () => this.startNewGame());
         this.container.querySelectorAll('.match-card').forEach(btn => btn.addEventListener('click', (e) => this.handleCardClick(parseInt(e.currentTarget.dataset.index), e.currentTarget)));
-        requestAnimationFrame(() => this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
+        
+        requestAnimationFrame(() => textService.fitGroup(this.container.querySelectorAll('.card-text'), 12, 28));
     }
 }
 export const matchApp = new MatchApp();

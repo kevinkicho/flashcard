@@ -18,6 +18,12 @@ export class TrueFalseApp {
         this.random();
     }
 
+    bind(selector, event, handler) {
+        if (!this.container) return;
+        const el = this.container.querySelector(selector);
+        if (el) el.addEventListener(event, handler);
+    }
+
     random() {
         this.currentIndex = vocabService.getRandomIndex();
         this.loadGame();
@@ -127,11 +133,11 @@ export class TrueFalseApp {
                 <div id="tf-card" class="w-full max-w-sm bg-white dark:bg-dark-card border-4 border-gray-100 dark:border-dark-border rounded-[2rem] p-8 shadow-xl text-center flex flex-col items-center gap-6 transition-all duration-300">
                     <div class="w-full" id="tf-q-box">
                         <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Meaning Match</span>
-                        <h1 class="text-5xl font-black text-gray-800 dark:text-white mt-2 leading-tight cursor-pointer active:scale-95 transition-transform" data-fit="true">${item.front.main}</h1>
+                        <h1 class="question-text text-5xl font-black text-gray-800 dark:text-white mt-2 leading-tight cursor-pointer active:scale-95 transition-transform">${item.front.main}</h1>
                     </div>
                     
                     <div class="w-full pt-2">
-                        <h2 class="text-3xl font-bold text-gray-600 dark:text-gray-300 leading-tight" data-fit="true">${displayMeaning}</h2>
+                        <h2 class="meaning-text text-3xl font-bold text-gray-600 dark:text-gray-300 leading-tight">${displayMeaning}</h2>
                     </div>
                 </div>
 
@@ -154,20 +160,28 @@ export class TrueFalseApp {
             <style>.shake{animation:shake 0.4s cubic-bezier(.36,.07,.19,.97) both}@keyframes shake{10%,90%{transform:translate3d(-1px,0,0)}20%,80%{transform:translate3d(2px,0,0)}30%,50%,70%{transform:translate3d(-4px,0,0)}40%,60%{transform:translate3d(4px,0,0)}}</style>
         `;
 
-        this.container.querySelector('#tf-close-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
-        this.container.querySelector('#tf-random-btn').addEventListener('click', () => this.random());
-        this.container.querySelector('#tf-prev-btn').addEventListener('click', () => this.prev());
-        this.container.querySelector('#tf-next-btn').addEventListener('click', () => this.next());
-        this.container.querySelector('#tf-q-box').addEventListener('click', () => this.playAudio());
-        this.container.querySelector('#btn-true').addEventListener('click', () => this.handleGuess(true));
-        this.container.querySelector('#btn-false').addEventListener('click', () => this.handleGuess(false));
+        this.bind('#tf-close-btn', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
+        this.bind('#tf-random-btn', 'click', () => this.random());
+        this.bind('#tf-prev-btn', 'click', () => this.prev());
+        this.bind('#tf-next-btn', 'click', () => this.next());
+        this.bind('#tf-q-box', 'click', () => this.playAudio());
+        this.bind('#btn-true', 'click', () => this.handleGuess(true));
+        this.bind('#btn-false', 'click', () => this.handleGuess(false));
 
+        this.bind('#tf-go-btn', 'click', () => {
+             const inp = this.container.querySelector('#tf-id-input');
+             if(inp) this.gotoId(inp.value);
+        });
+        
         const idInput = this.container.querySelector('#tf-id-input');
-        const goBtn = this.container.querySelector('#tf-go-btn');
-        goBtn.addEventListener('click', () => this.gotoId(idInput.value));
-        idInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') this.gotoId(idInput.value); });
+        if (idInput) {
+             idInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') this.gotoId(idInput.value); });
+        }
 
-        requestAnimationFrame(() => this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
+        requestAnimationFrame(() => {
+            textService.fitText(this.container.querySelector('.question-text'), 20, 80);
+            textService.fitText(this.container.querySelector('.meaning-text'), 18, 60);
+        });
     }
 }
 export const trueFalseApp = new TrueFalseApp();

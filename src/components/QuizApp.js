@@ -104,9 +104,8 @@ export class QuizApp {
         }
 
         if(correct) {
-            // UPDATED: Logic to read only the first part of the word
             const fullText = this.currentData.target.front.main;
-            const textToRead = fullText.split(/[・･]/)[0]; // Split by dot (full or half width)
+            const textToRead = fullText.split(/[・･]/)[0];
 
             const s = settingsService.get();
             if (s.quizAutoPlayCorrect) {
@@ -131,7 +130,6 @@ export class QuizApp {
         if(!this.currentData) { this.renderError(); return; }
         const { target, choices } = this.currentData;
         
-        // PREPARE AUDIO TEXT: Split by dot for the main question audio as well
         const audioText = target.front.main.split(/[・･]/)[0];
         
         this.container.innerHTML = `
@@ -149,8 +147,8 @@ export class QuizApp {
                 </div>
             </div>
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div id="quiz-question-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-6 flex flex-col items-center justify-center"><span class="font-black text-6xl text-gray-800 dark:text-white text-center" data-fit="true">${target.front.main}</span></div>
-                <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-3">${choices.map(c => `<button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex items-center justify-center" data-id="${c.id}"><div class="text-lg font-bold text-gray-700 dark:text-white text-center" data-fit="true">${c.back.definition}</div></button>`).join('')}</div>
+                <div id="quiz-question-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-6 flex flex-col items-center justify-center"><span class="quiz-question-text font-black text-6xl text-gray-800 dark:text-white text-center">${target.front.main}</span></div>
+                <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-3">${choices.map(c => `<button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex items-center justify-center" data-id="${c.id}"><div class="quiz-choice-text text-lg font-bold text-gray-700 dark:text-white text-center">${c.back.definition}</div></button>`).join('')}</div>
             </div>
             <div class="fixed bottom-0 left-0 right-0 p-6 z-40 bg-gradient-to-t from-gray-100 via-gray-100 to-transparent dark:from-dark-bg"><div class="max-w-md mx-auto flex gap-4"><button id="quiz-prev-btn" class="flex-1 h-16 bg-white border border-gray-200 rounded-3xl shadow-sm flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg></button><button id="quiz-next-btn" class="flex-1 h-16 bg-indigo-600 text-white rounded-3xl shadow-xl flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg></button></div></div>
         `;
@@ -163,7 +161,6 @@ export class QuizApp {
         this.bind('#quiz-question-box', 'click', () => {
              if(!this.isProcessing && !window.wasLongPress) {
                  audioService.stop();
-                 // UPDATED: Play only split text
                  audioService.speak(audioText, settingsService.get().targetLang);
              }
         });
@@ -171,12 +168,15 @@ export class QuizApp {
         this.bind('#quiz-id-input', 'change', (e) => { const newId = parseInt(e.target.value); vocabService.findIndexById(newId) !== -1 ? this.next(newId) : alert('ID not found'); });
         
         this.container.querySelectorAll('.quiz-option').forEach(btn => btn.addEventListener('click', (e) => {
-            const text = btn.querySelector('[data-fit="true"]').innerText;
+            const text = btn.querySelector('.quiz-choice-text').innerText;
             this.handleOptionClick(parseInt(e.currentTarget.dataset.id), e.currentTarget, text);
         }));
         
-        requestAnimationFrame(() => this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
-        // UPDATED: Auto-play uses split text
+        requestAnimationFrame(() => {
+            textService.fitText(this.container.querySelector('.quiz-question-text'), 24, 85);
+            textService.fitGroup(this.container.querySelectorAll('.quiz-choice-text'), 14, 32);
+        });
+
         if (settingsService.get().autoPlay) setTimeout(() => audioService.speak(audioText, settingsService.get().targetLang), 300);
     }
 }

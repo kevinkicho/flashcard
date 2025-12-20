@@ -1,4 +1,5 @@
 import { settingsService } from '../services/settingsService';
+import { textService } from '../services/textService'; // Import added
 
 export const Card = (item, isFlipped) => {
     const settings = settingsService.get();
@@ -15,7 +16,7 @@ export const Card = (item, isFlipped) => {
                 
                 <div class="flex-grow w-full flex items-center justify-center overflow-hidden">
                     <span id="flashcard-text" class="text-5xl md:text-6xl font-black text-gray-800 dark:text-white leading-tight text-center select-none ${fontClass}" data-fit="true">
-                        ${item.front.main}
+                        ${textService.smartWrap(item.front.main)}
                     </span>
                 </div>
                 
@@ -37,7 +38,7 @@ export const Card = (item, isFlipped) => {
                 
                 <div class="flex-grow w-full flex items-center justify-center overflow-hidden">
                     <span id="flashcard-text" class="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white leading-tight text-center select-none" data-fit="true">
-                        ${item.back.definition}
+                        ${textService.smartWrap(item.back.definition)}
                     </span>
                 </div>
                 

@@ -70,7 +70,6 @@ export class ConstructorApp {
         const c = this.charPool[poolIdx];
         if (c.used) return;
 
-        // NEW: Audio on click
         if(settingsService.get().clickAudio !== false) {
             audioService.speak(c.char, settingsService.get().targetLang);
         }
@@ -127,7 +126,7 @@ export class ConstructorApp {
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
                     </button>
                     <button id="const-random-btn" class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-gray-500 hover:text-emerald-500 active:scale-95 transition-all">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                     </button>
                 </div>
                 <div class="flex items-center gap-2">
@@ -142,7 +141,7 @@ export class ConstructorApp {
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-lg mx-auto flex flex-col gap-6">
                 <div id="const-question-box" class="bg-white dark:bg-dark-card p-4 rounded-3xl shadow-sm border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform hover:border-emerald-200 group flex flex-col h-32 justify-center items-center">
                     <span class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Build</span>
-                    <h2 class="font-bold text-gray-800 dark:text-white w-full text-center flex-1 flex items-center justify-center whitespace-nowrap" data-fit="true">${originText}</h2>
+                    <h2 class="font-bold text-gray-800 dark:text-white w-full text-center flex-1 flex items-center justify-center whitespace-nowrap" data-fit="true">${textService.smartWrap(originText)}</h2>
                 </div>
 
                 <div id="const-slots" class="flex flex-wrap justify-center gap-2 min-h-[4rem] p-3 bg-gray-100 dark:bg-dark-bg/50 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 transition-all">
@@ -189,9 +188,10 @@ export class ConstructorApp {
         this.container.querySelectorAll('.choice-tile').forEach(btn => btn.addEventListener('click', (e) => this.handlePoolClick(parseInt(e.currentTarget.dataset.index))));
         this.container.querySelectorAll('[data-pos]').forEach(btn => btn.addEventListener('click', (e) => this.handleBuiltClick(parseInt(e.currentTarget.dataset.pos))));
         
+        // UPDATED: Min size 28
         requestAnimationFrame(() => {
             textService.fitText(this.container.querySelector('[data-fit="true"]'), 20, 60);
-            textService.fitGroup(this.container.querySelectorAll('.tile-text'), 24, 64);
+            textService.fitGroup(this.container.querySelectorAll('.tile-text'), 28, 64);
         });
     }
 }

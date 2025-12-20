@@ -74,9 +74,7 @@ export class ReverseApp {
             el.classList.replace('bg-white', 'bg-green-500');
             el.classList.replace('dark:bg-dark-card', 'bg-green-500');
             el.classList.add('text-white', 'border-green-600');
-            
             scoreService.addScore('reverse', 10);
-            
             setTimeout(() => this.next(), 1000);
         } else {
             el.classList.replace('bg-white', 'bg-red-500');
@@ -113,7 +111,7 @@ export class ReverseApp {
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
                     </button>
                     <button id="rev-random-btn" class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-gray-500 hover:text-indigo-500 active:scale-95 transition-all">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                     </button>
                 </div>
                 <div class="flex items-center gap-2">
@@ -131,13 +129,13 @@ export class ReverseApp {
                         <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Select Translation</span>
                         <svg class="w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
                     </div>
-                    <h2 class="question-text text-3xl font-black text-gray-800 dark:text-white leading-tight">${originText}</h2>
+                    <h2 class="question-text text-3xl font-black text-gray-800 dark:text-white leading-tight">${textService.smartWrap(originText)}</h2>
                 </div>
 
-                <div class="grid grid-cols-1 gap-3">
+                <div class="grid grid-cols-2 gap-3">
                     ${choices.map(c => `
-                        <button class="choice-btn bg-white dark:bg-dark-card border-2 border-gray-100 dark:border-dark-border p-4 rounded-2xl shadow-sm hover:shadow-md text-xl font-bold text-gray-700 dark:text-white transition-all active:scale-98 text-left whitespace-nowrap overflow-hidden" data-id="${c.id}">
-                            <span class="choice-text w-full px-2">${c.front.main}</span>
+                        <button class="choice-btn bg-white dark:bg-dark-card border-2 border-gray-100 dark:border-dark-border p-1 rounded-2xl shadow-sm hover:shadow-md text-xl font-bold text-gray-700 dark:text-white transition-all active:scale-98 text-center flex flex-col items-center justify-center whitespace-nowrap overflow-hidden min-h-[6rem]" data-id="${c.id}">
+                            <span class="choice-text w-full px-1">${textService.smartWrap(c.front.main)}</span>
                         </button>
                     `).join('')}
                 </div>
@@ -153,7 +151,6 @@ export class ReverseApp {
                     </button>
                 </div>
             </div>
-            <style>.shake{animation:shake 0.4s cubic-bezier(.36,.07,.19,.97) both}@keyframes shake{10%,90%{transform:translate3d(-1px,0,0)}20%,80%{transform:translate3d(2px,0,0)}30%,50%,70%{transform:translate3d(-4px,0,0)}40%,60%{transform:translate3d(4px,0,0)}}</style>
         `;
 
         this.container.querySelector('#rev-close-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
@@ -169,10 +166,9 @@ export class ReverseApp {
 
         this.container.querySelectorAll('.choice-btn').forEach(btn => btn.addEventListener('click', (e) => this.handleChoice(parseInt(e.currentTarget.dataset.id), e.currentTarget)));
         
-        // Use updated textService methods
         requestAnimationFrame(() => {
-            textService.fitText(this.container.querySelector('.question-text'), 20, 60); // Constrained
-            textService.fitGroup(this.container.querySelectorAll('.choice-text'), 14, 28); // Uniform
+            textService.fitText(this.container.querySelector('.question-text'), 20, 60);
+            textService.fitGroup(this.container.querySelectorAll('.choice-text'), 20, 48); 
         });
     }
 }

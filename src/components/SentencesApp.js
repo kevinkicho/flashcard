@@ -58,7 +58,6 @@ export class SentencesApp {
 
         let sentence = item.back.sentenceTarget || item.front.main;
         
-        // FIXED: Explicit Japanese Pipeline usage
         let parts;
         if (settingsService.get().targetLang === 'ja') {
             parts = textService.tokenizeJapanese(sentence);
@@ -134,7 +133,7 @@ export class SentencesApp {
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
                     </button>
                     <button id="sent-random-btn" class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-gray-500 hover:text-pink-500 active:scale-95 transition-all">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                     </button>
                 </div>
                 <div class="flex items-center gap-2">
@@ -149,21 +148,21 @@ export class SentencesApp {
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-lg mx-auto flex flex-col gap-4">
                 <div id="sent-question-box" class="bg-white dark:bg-dark-card p-6 rounded-3xl shadow-sm text-center border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform hover:border-pink-200 group">
                     <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Arrange</span>
-                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mt-1" data-fit="true">${originText}</h2>
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mt-1" data-fit="true">${textService.smartWrap(originText)}</h2>
                 </div>
 
                 <div id="sent-slots" class="flex flex-wrap justify-center gap-2 min-h-[5rem] p-4 bg-gray-100 dark:bg-dark-bg/50 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 transition-all">
                     ${this.builtIndices.map((poolIdx, i) => `
-                        <button class="bg-pink-500 text-white rounded-lg px-3 py-2 font-bold shadow-md active:scale-95 whitespace-nowrap" data-pos="${i}">${this.wordPool[poolIdx].word}</button>
+                        <button class="bg-pink-500 text-white rounded-xl px-4 py-3 font-bold shadow-md active:scale-95 whitespace-nowrap text-lg" data-pos="${i}">${this.wordPool[poolIdx].word}</button>
                     `).join('')}
                     ${this.builtIndices.length === 0 ? '<span class="text-gray-400 text-sm self-center font-medium animate-pulse">Tap words below</span>' : ''}
                 </div>
 
                 <div class="flex-1 overflow-y-auto custom-scrollbar">
-                    <div class="flex flex-wrap justify-center gap-2 pb-4">
+                    <div class="flex flex-wrap justify-center gap-3 pb-4">
                         ${this.wordPool.map((w, i) => `
-                            <button class="bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-gray-700 rounded-xl px-3 py-3 font-bold text-gray-700 dark:text-white shadow-sm hover:border-pink-400 active:scale-95 transition-all whitespace-nowrap ${w.used ? 'opacity-20 pointer-events-none' : ''}" data-index="${i}">
-                                ${w.word}
+                            <button class="bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-gray-700 rounded-2xl p-1 min-w-[4rem] min-h-[4rem] font-bold text-2xl text-gray-700 dark:text-white shadow-sm hover:border-pink-400 active:scale-95 transition-all whitespace-nowrap flex items-center justify-center ${w.used ? 'opacity-20 pointer-events-none' : ''}" data-index="${i}">
+                                <span class="w-full text-center">${w.word}</span>
                             </button>
                         `).join('')}
                     </div>

@@ -26,11 +26,8 @@ class AudioService {
         if (!text) return "";
         let clean = text;
 
-        if (lang === 'ja' || lang === 'ja-JP') {
-            // STOP reading at any of these characters: ・, ･, ·, •, （, (, [, <
-            // This ensures "Word・Definition" only reads "Word"
-            clean = clean.split(/[・･\u30FB\uFF65\u00B7\u2022（(\[<]/)[0];
-        }
+        // UNIVERSAL: STOP reading at any of these characters: ・, ･, ·, •, （, (, [, <, /, ,
+        clean = clean.split(/[・･\u30FB\uFF65\u00B7\u2022（(\[<\/,]/)[0];
 
         return clean.trim();
     }
@@ -39,6 +36,13 @@ class AudioService {
         return new Promise((resolve, reject) => {
             if (!this.synth) { resolve(); return; }
             
+            // App-wide Effect: Do not play audio for the Origin Language
+            const settings = settingsService.get();
+            if (lang === settings.originLang) {
+                resolve(); 
+                return;
+            }
+
             this.synth.cancel();
 
             const cleanText = this.sanitizeText(text, lang);
@@ -49,9 +53,7 @@ class AudioService {
             if (voice) utter.voice = voice;
             
             utter.lang = lang;
-            
-            const s = settingsService.get();
-            utter.volume = s.volume !== undefined ? s.volume : 1.0;
+            utter.volume = settings.volume !== undefined ? settings.volume : 1.0;
             utter.rate = 1.0; 
 
             utter.onend = () => resolve();

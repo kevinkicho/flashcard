@@ -43,7 +43,6 @@ export class MatchApp {
         const card = this.cards[idx];
         if (card.matched) return;
 
-        // FIXED: Explicitly play audio if enabled
         if (settingsService.get().clickAudio !== false && card.text) {
             const lang = card.type === 'target' ? settingsService.get().targetLang : settingsService.get().originLang;
             audioService.speak(card.text, lang);
@@ -116,7 +115,7 @@ export class MatchApp {
                 <div class="flex items-center gap-2">
                     <div class="text-xl font-black text-yellow-500 tracking-tighter">MATCH</div>
                     <button id="match-random-btn" class="ml-2 bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-gray-500 hover:text-yellow-500 active:scale-95 transition-all">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                     </button>
                 </div>
                 <div class="flex items-center gap-2">
@@ -130,8 +129,8 @@ export class MatchApp {
             <div class="w-full h-full pt-20 pb-10 px-4 max-w-lg mx-auto">
                 <div class="grid grid-cols-3 gap-2 h-full content-center">
                     ${this.cards.map((c, i) => `
-                        <button class="match-card relative w-full aspect-square bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-dark-border rounded-xl shadow-sm flex items-center justify-center p-0 transition-all duration-200 overflow-hidden ${c.matched ? 'opacity-0 pointer-events-none' : 'hover:scale-105 active:scale-95'}" data-index="${i}">
-                            <span class="card-text font-bold text-gray-700 dark:text-white text-center leading-tight w-full px-1" style="white-space:normal">${c.text}</span>
+                        <button class="match-card relative w-full aspect-square bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-dark-border rounded-xl shadow-sm flex items-center justify-center p-1 transition-all duration-200 overflow-hidden ${c.matched ? 'opacity-0 pointer-events-none' : 'hover:scale-105 active:scale-95'}" data-index="${i}">
+                            <span class="card-text font-bold text-gray-700 dark:text-white text-center leading-tight w-full" style="white-space:normal">${textService.smartWrap(c.text)}</span>
                         </button>
                     `).join('')}
                 </div>
@@ -142,10 +141,10 @@ export class MatchApp {
         this.container.querySelector('#match-random-btn').addEventListener('click', () => this.startNewGame());
         this.container.querySelectorAll('.match-card').forEach(btn => btn.addEventListener('click', (e) => this.handleCardClick(parseInt(e.currentTarget.dataset.index), e.currentTarget)));
         
-        // Use fitText (false -> allow wrap) for match cards to maximize size of long definitions
+        // UPDATED: Min size 14
         requestAnimationFrame(() => {
             if(!this.container) return;
-            this.container.querySelectorAll('.card-text').forEach(el => textService.fitText(el, 12, 44, false));
+            this.container.querySelectorAll('.card-text').forEach(el => textService.fitText(el, 14, 44, false));
         });
     }
 }

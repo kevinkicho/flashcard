@@ -115,8 +115,78 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateEditPermissions() { 
         const isAdmin = currentUser && currentUser.email === 'kevinkicho@gmail.com'; 
         const btns = document.querySelectorAll('#btn-save-vocab, .btn-save-dict, #btn-add-dict');
-        btns.forEach(btn => { if(btn.id === 'btn-add-dict') btn.style.display = isAdmin ? 'block' : 'none'; else { btn.disabled = !isAdmin; btn.style.display = isAdmin ? 'block' : 'none'; } }); 
+        btns.forEach(btn => { 
+            if(btn.id === 'btn-add-dict') btn.style.display = isAdmin ? 'block' : 'none'; 
+            else { 
+                btn.disabled = !isAdmin; 
+                btn.style.display = isAdmin ? 'block' : 'none'; 
+            } 
+        });
     }
+
+    window.renderVocabEditFields = (data) => {
+        const container = document.getElementById('edit-vocab-fields');
+        const idLabel = document.getElementById('edit-vocab-id');
+        if (idLabel) idLabel.textContent = `ID: ${data.id}`;
+        
+        if (!container) return;
+        container.innerHTML = '';
+        
+        const fields = ['ja', 'ja_furi', 'en', 'ja_ex', 'en_ex', 'zh', 'ko'];
+        
+        fields.forEach(key => {
+            const val = data[key] || '';
+            const fieldHTML = `
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">${key}</label>
+                    <input class="w-full bg-gray-100 dark:bg-gray-800 border-none rounded-lg p-3 text-gray-800 dark:text-white font-medium focus:ring-2 ring-indigo-500 outline-none" 
+                           data-key="${key}" value="${val}">
+                </div>`;
+            container.insertAdjacentHTML('beforeend', fieldHTML);
+        });
+    }
+
+    // UPDATED: Dictionary List with Audio Playback
+    window.populateDictionaryEdit = (text) => {
+         const list = document.getElementById('edit-dict-list');
+         if(!list) return;
+         if(!text) {
+             list.innerHTML = `<div class="text-gray-400 text-sm italic p-2">No text content available to look up.</div>`;
+             return;
+         }
+         
+         const results = dictionaryService.lookupText(text);
+         
+         if (results.length === 0) {
+             list.innerHTML = `<div class="text-gray-400 text-sm italic p-2">No dictionary entries found for characters in this card.</div>`;
+             return;
+         }
+
+         let html = '';
+         results.forEach(entry => {
+             // UPDATED: Added onclick to play audio specifically in Chinese
+             html += `
+                <div class="flex items-start gap-4 p-3 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer active:scale-95 transition-transform" 
+                     onclick="window.playDictAudio('${entry.s}')">
+                    <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400 font-serif">${entry.s}</div>
+                    <div class="flex-1">
+                        <div class="flex gap-2 items-baseline mb-1">
+                            <span class="text-lg font-bold text-gray-800 dark:text-white">${entry.p}</span>
+                            ${entry.t && entry.t !== entry.s ? `<span class="text-xs text-gray-400">(${entry.t})</span>` : ''}
+                        </div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300 leading-snug">${entry.e}</div>
+                        ${entry.ko ? `<div class="text-xs text-indigo-500 mt-1 font-medium">${entry.ko}</div>` : ''}
+                    </div>
+                </div>
+             `;
+         });
+         list.innerHTML = html;
+    }
+
+    // Expose audio player globally for the generated HTML above
+    window.playDictAudio = (text) => {
+        audioService.speak(text, 'zh-CN');
+    };
 
     function renderView(viewName) { 
         audioService.stop(); 
@@ -184,7 +254,18 @@ document.addEventListener('DOMContentLoaded', () => {
             try { unlockedMap = await achievementService.getUserAchievements(currentUser.uid) || {}; } catch(e){ console.error(e); }
         }
         
-        let html = '';
+        const totalPoints = Object.values(unlockedMap).reduce((sum, item) => {
+             const achDef = ACHIEVEMENTS.find(a => a.title === item.title); 
+             return sum + (achDef ? achDef.points : 0);
+        }, 0);
+
+        let html = `
+        <div class="mb-8 flex flex-col items-center">
+            <div class="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Total Score</div>
+            <div class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-tr from-white to-gray-400 font-mono tracking-tighter">${totalPoints}</div>
+            <div class="h-1 w-12 bg-indigo-500 rounded-full mt-2 opacity-50"></div>
+        </div>`;
+
         const sorted = [...ACHIEVEMENTS].sort((a,b) => { 
             const aU = !!unlockedMap[a.id], bU = !!unlockedMap[b.id]; 
             if (aU && !bU) return -1; if (!aU && bU) return 1; return b.points - a.points; 
@@ -192,9 +273,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         sorted.forEach(ach => {
             const unlocked = !!unlockedMap[ach.id];
-            const bg = unlocked ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-orange-200 dark:bg-gray-800 dark:border-yellow-900' : 'bg-gray-50 border-gray-100 dark:bg-black/20 dark:border-gray-800 opacity-60';
+            const bg = unlocked ? 'bg-white/10 border-indigo-500/30' : 'bg-black/20 border-white/5 opacity-50 grayscale';
+            const textCol = unlocked ? 'text-white' : 'text-gray-500';
             const ic = unlocked ? '🏆' : '🔒';
-            html += `<div class="flex items-center gap-3 p-3 rounded-xl border ${bg}"><div class="text-2xl">${ic}</div><div class="flex-1"><h4 class="font-bold text-sm ${unlocked?'dark:text-white':''}">${ach.title}</h4><p class="text-[10px] text-gray-500">${ach.desc}</p></div><div class="text-xs font-black text-orange-500">+${ach.points}</div></div>`;
+            html += `<div class="flex items-center gap-4 p-4 rounded-2xl border ${bg} backdrop-blur-sm transition-all hover:bg-white/15"><div class="text-3xl">${ic}</div><div class="flex-1"><h4 class="font-bold text-sm ${textCol}">${ach.title}</h4><p class="text-[10px] text-gray-400 leading-tight mt-1">${ach.desc}</p></div><div class="text-xs font-black text-indigo-400 font-mono">+${ach.points}</div></div>`;
         });
         achContent.innerHTML = html;
     });
@@ -222,8 +304,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         const em = document.getElementById('edit-modal');
                         if(em) { em.classList.remove('hidden'); setTimeout(()=>em.classList.remove('opacity-0'), 10); }
                         switchEditTab('vocab');
-                        renderVocabEditFields(fullData);
-                        populateDictionaryEdit((fullData.ja||'') + (fullData.ja_ex||'') + (fullData.zh||'') + (fullData.ko||''));
+                        window.renderVocabEditFields(fullData); 
+                        window.populateDictionaryEdit(
+                            (fullData.ja||'') + (fullData.ja_ex||'') + 
+                            (fullData.zh||'') + (fullData.zh_ex||'') +
+                            (fullData.ko||'') + (fullData.ko_ex||'')
+                        );
                         updateEditPermissions();
                     }
                 }
@@ -266,9 +352,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const snap = await get(statsRef); 
             const data = snap.exists() ? snap.val() : {};
             const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            
-            // KEY FIX: Safely retrieve numbers. If 'constructor' key is missing, d['constructor'] returns a function.
-            // checking type ensures we only get numbers.
             const getVal = (obj, key) => (obj && typeof obj[key] === 'number') ? obj[key] : 0;
 
             chartDataCache = weekDates.map((date, i) => {
@@ -313,7 +396,29 @@ document.addEventListener('DOMContentLoaded', () => {
             if(container) {
                 container.innerHTML = html;
                 updateScoreDisplay();
-                container.querySelectorAll('.chart-bar-container').forEach(el => { el.addEventListener('click', (e) => { e.stopPropagation(); container.querySelectorAll('.chart-bar').forEach(b => b.classList.remove('ring-2', 'ring-indigo-400')); el.querySelector('.chart-bar').classList.add('ring-2', 'ring-indigo-400'); const s=chartDataCache[el.dataset.idx]; if(tooltipArea) tooltipArea.innerHTML = `<div class="flex gap-2 text-xs font-bold items-center flex-wrap justify-center"><span class="text-gray-500 dark:text-gray-300 uppercase">${s.label}</span><span class="text-gray-800 dark:text-white border-l border-gray-300 pl-2">Tot: ${s.total}</span></div>`; }); });
+                container.querySelectorAll('.chart-bar-container').forEach(el => { 
+                    el.addEventListener('click', (e) => { 
+                        e.stopPropagation(); 
+                        container.querySelectorAll('.chart-bar').forEach(b => b.classList.remove('ring-2', 'ring-indigo-400')); 
+                        el.querySelector('.chart-bar').classList.add('ring-2', 'ring-indigo-400'); 
+                        const s=chartDataCache[el.dataset.idx]; 
+                        if(tooltipArea) {
+                            let details = '';
+                            if(s.fc) details += `<span class="text-indigo-500">FC:${s.fc}</span> `;
+                            if(s.qz) details += `<span class="text-purple-500">QZ:${s.qz}</span> `;
+                            if(s.st) details += `<span class="text-pink-500">ST:${s.st}</span> `;
+                            if(s.bl) details += `<span class="text-teal-500">BL:${s.bl}</span> `;
+                            if(s.li) details += `<span class="text-blue-500">LI:${s.li}</span> `;
+                            if(s.ma) details += `<span class="text-yellow-500">MA:${s.ma}</span> `;
+                            
+                            tooltipArea.innerHTML = `
+                                <div class="flex flex-col items-center">
+                                    <span class="text-gray-500 dark:text-gray-300 uppercase font-bold text-xs mb-1">${s.label} - Total: ${s.total}</span>
+                                    <div class="flex gap-2 text-[10px] font-bold flex-wrap justify-center">${details || 'No activity'}</div>
+                                </div>`; 
+                        }
+                    }); 
+                });
             }
         } catch (e) { console.error("Chart Error", e); if(container) container.innerHTML = `<div class="text-red-500 p-4 text-xs">Error</div>`; }
     }

@@ -79,19 +79,46 @@ export class TrueFalseApp {
         this.isProcessing = true;
         const correct = (userGuessedTrue === this.isCorrectPair);
         
+        const box = this.container.querySelector('#tf-card');
+        const meaningEl = this.container.querySelector('.meaning-text');
+        const correctMeaning = this.currentData.item.back.main || this.currentData.item.back.definition;
+
         if (correct) {
             scoreService.addScore('truefalse', 10);
             if (settingsService.get().autoPlay) this.playAudio();
-            const box = this.container.querySelector('#tf-card');
+            
             box.classList.add('animate-celebrate', 'border-green-500', 'bg-green-50', 'dark:bg-green-900/20');
-            setTimeout(() => this.next(), 800);
+
+            // UPDATED: Only show logic adjustment - If Correct is NO (Mismatch), and user clicked NO (Correct), 
+            // do NOT cross out. Just reveal "YES, [Item] = [Correct Meaning]" as a reinforcement.
+            if (!userGuessedTrue && !this.isCorrectPair) {
+                if(meaningEl) {
+                    meaningEl.innerHTML = `
+                        <span class="line-through opacity-40 text-gray-400 block text-lg mb-2">${textService.smartWrap(this.currentData.displayMeaning)}</span>
+                        <span class="font-black text-indigo-600 dark:text-indigo-400 block text-4xl animate-celebrate">${textService.smartWrap(correctMeaning)}</span>
+                        <span class="block text-xs font-bold text-green-500 mt-2 uppercase tracking-widest">Correct!</span>
+                    `;
+                }
+                setTimeout(() => this.next(), 2000);
+            } else {
+                setTimeout(() => this.next(), 800);
+            }
         } else {
-            const box = this.container.querySelector('#tf-card');
             box.classList.add('shake', 'border-red-500', 'bg-red-50', 'dark:bg-red-900/20');
+            
+            // On Error: Always reveal truth
+            if(meaningEl) {
+                meaningEl.style.color = '#EF4444'; 
+                meaningEl.innerHTML = `
+                    <span class="line-through opacity-50 text-sm block">${textService.smartWrap(this.currentData.displayMeaning)}</span>
+                    <span class="font-black text-indigo-600 dark:text-indigo-400 block mt-2 text-4xl">${textService.smartWrap(correctMeaning)}</span>
+                `;
+            }
+
             setTimeout(() => {
                 box.classList.remove('shake', 'border-red-500', 'bg-red-50', 'dark:bg-red-900/20');
                 this.isProcessing = false;
-            }, 500);
+            }, 2000); 
         }
     }
 
@@ -111,7 +138,7 @@ export class TrueFalseApp {
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
                     </button>
                     <button id="tf-random-btn" class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-gray-500 hover:text-orange-500 active:scale-95 transition-all">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                     </button>
                 </div>
                 <div class="flex items-center gap-2">
@@ -126,11 +153,11 @@ export class TrueFalseApp {
             <div class="w-full h-full pt-20 pb-28 px-6 flex flex-col items-center justify-center">
                 <div id="tf-card" class="w-full max-w-sm bg-white dark:bg-dark-card border-4 border-gray-100 dark:border-dark-border rounded-[2rem] p-8 shadow-xl text-center flex flex-col items-center gap-6 transition-all duration-300">
                     <div class="w-full h-32 flex items-center justify-center" id="tf-q-box">
-                        <h1 class="question-text font-black text-gray-800 dark:text-white leading-tight cursor-pointer active:scale-95 transition-transform w-full text-center h-full flex items-center justify-center">${item.front.main}</h1>
+                        <h1 class="question-text font-black text-gray-800 dark:text-white leading-tight cursor-pointer active:scale-95 transition-transform w-full text-center h-full flex items-center justify-center">${textService.smartWrap(item.front.main)}</h1>
                     </div>
                     
                     <div class="w-full pt-2 border-t border-gray-100 dark:border-gray-700">
-                        <h2 class="meaning-text text-3xl font-bold text-gray-600 dark:text-gray-300 leading-tight">${displayMeaning}</h2>
+                        <h2 class="meaning-text text-3xl font-bold text-gray-600 dark:text-gray-300 leading-tight">${textService.smartWrap(displayMeaning)}</h2>
                     </div>
                 </div>
 

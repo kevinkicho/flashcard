@@ -2,6 +2,7 @@ import { vocabService } from '../services/vocabService';
 import { settingsService } from '../services/settingsService';
 import { audioService } from '../services/audioService';
 import { scoreService } from '../services/scoreService';
+import { textService } from '../services/textService';
 
 export class WritingApp {
     constructor() {
@@ -55,7 +56,6 @@ export class WritingApp {
         this.render();
     }
 
-    // New: Reveal answer in input
     revealAnswer() {
         const input = document.getElementById('writing-input');
         if(input && this.currentData) {
@@ -74,9 +74,9 @@ export class WritingApp {
         
         if (guess === correct) {
             this.isProcessing = true;
-            // WIN EFFECT
             input.classList.remove('bg-gray-100', 'dark:bg-gray-800');
-            input.classList.add('bg-green-500', 'text-white', 'border-green-600', 'animate-celebrate');
+            // UPDATED: Added Gold/Yellow Effect
+            input.classList.add('bg-white', 'text-green-600', 'border-yellow-400', 'ring-4', 'ring-yellow-400', 'animate-celebrate');
             
             scoreService.addScore('writing', 10);
             if (settingsService.get().autoPlay) audioService.speak(this.currentData.front.main, settingsService.get().targetLang);
@@ -107,7 +107,7 @@ export class WritingApp {
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                     </button>
                     <button id="write-random-btn" class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-gray-500 hover:text-cyan-500 active:scale-95 transition-all">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                     </button>
                 </div>
                 <div class="flex items-center gap-2">
@@ -122,7 +122,7 @@ export class WritingApp {
             <div class="w-full h-full pt-20 pb-40 px-6 max-w-lg mx-auto flex flex-col justify-center gap-8">
                 <div id="write-q-box" class="bg-white dark:bg-dark-card p-8 rounded-3xl shadow-sm text-center border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform">
                     <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Translate</span>
-                    <h2 class="text-3xl font-black text-gray-800 dark:text-white mt-2 leading-tight">${originText}</h2>
+                    <h2 class="text-3xl font-black text-gray-800 dark:text-white mt-2 leading-tight">${textService.smartWrap(originText)}</h2>
                 </div>
 
                 <div class="relative w-full">

@@ -29,7 +29,6 @@ export class BlanksApp {
         this.isProcessing = false;
         this.selectedAnswerId = null;
         audioService.stop();
-        
         if (id !== null) {
             const idx = vocabService.findIndexById(id);
             if (idx !== -1) this.currentIndex = idx;
@@ -37,7 +36,6 @@ export class BlanksApp {
             const list = vocabService.getAll();
             this.currentIndex = (this.currentIndex + 1) % list.length;
         }
-        
         this.loadGame();
     }
     
@@ -52,16 +50,9 @@ export class BlanksApp {
     loadGame() {
         const list = vocabService.getAll();
         if (!list || !list.length) { this.renderError(); return; }
-        
         const targetId = list[this.currentIndex].id;
         this.currentData = blanksService.generateQuestion(targetId);
-        
-        if (!this.currentData) {
-            console.log("Skipping ID " + targetId);
-            this.renderError(); 
-            return;
-        }
-
+        if (!this.currentData) { this.renderError(); return; }
         if(this.currentData && this.currentData.target && window.saveGameHistory) {
             window.saveGameHistory('blanks', this.currentData.target.id);
         }
@@ -70,12 +61,7 @@ export class BlanksApp {
 
     renderError() {
         if (this.container) {
-            this.container.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-full pt-20">
-                    <div class="text-xl font-bold text-gray-400 mb-4">No Data Available</div>
-                    <button id="blanks-close-err" class="px-6 py-2 bg-indigo-600 text-white rounded-full">Go Home</button>
-                </div>
-            `;
+            this.container.innerHTML = `<div class="flex flex-col items-center justify-center h-full pt-20"><div class="text-xl font-bold text-gray-400 mb-4">No Data Available</div><button id="blanks-close-err" class="px-6 py-2 bg-indigo-600 text-white rounded-full">Go Home</button></div>`;
             const btn = this.container.querySelector('#blanks-close-err');
             if(btn) btn.addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
         }
@@ -146,13 +132,12 @@ export class BlanksApp {
             const fullSentence = this.currentData.target.back.sentenceTarget;
             const qBox = document.getElementById('blanks-question-box');
             if(qBox) {
-                const pillText = qBox.querySelector('.pill-text');
-                const pillSpan = qBox.querySelector('.blank-pill');
-                if (pillText && pillSpan) {
-                    pillText.classList.remove('text-transparent');
-                    pillText.classList.add('text-indigo-600', 'dark:text-indigo-400');
-                    pillSpan.classList.remove('border-b-2', 'border-gray-400', 'dark:border-gray-600');
-                    pillSpan.classList.add('scale-110', 'transition-transform');
+                const pill = qBox.querySelector('.blank-pill');
+                if (pill) {
+                    pill.innerHTML = answerWord;
+                    // UPDATED: Height transition on reveal
+                    pill.classList.remove('border-dashed', 'bg-indigo-50', 'text-transparent', 'w-16', 'h-10');
+                    pill.classList.add('text-indigo-600', 'dark:text-indigo-400', 'scale-110', 'px-2', 'h-auto');
                 }
             }
             const s = settingsService.get();
@@ -169,21 +154,22 @@ export class BlanksApp {
     render() {
         if(!this.container) return;
         if(!this.currentData || !this.currentData.target) { 
-            if (vocabService.getAll().length > 0) {
-                this.loadGame();
-            } else {
-                this.renderError(); 
-            }
+            if (vocabService.getAll().length > 0) { this.loadGame(); } else { this.renderError(); }
             return; 
         }
         
         const { target, choices, sentence, blankedSentence, answerWord } = this.currentData;
-        const rawSentence = sentence || blankedSentence || "";
+        let rawSentence = sentence || blankedSentence || "";
         const s = settingsService.get();
         const originLangKey = `${s.originLang}_ex`; 
         const translationText = target[originLangKey] || target.back.sentenceOrigin || target.back.definition || "";
         
-        const pillHtml = `<span class="blank-pill inline-block border-b-2 border-gray-400 dark:border-gray-600 mx-1"><span class="pill-text text-transparent font-bold">${answerWord}</span></span>`;
+        if (!rawSentence.includes('_') && answerWord) {
+            rawSentence = rawSentence.replace(answerWord, '______');
+        }
+
+        // UPDATED: Increased height to h-10 to fix cutoff
+        const pillHtml = `<span class="blank-pill inline-flex items-center justify-center border-2 border-dashed border-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 dark:border-indigo-700 rounded-lg mx-1 w-16 h-10 align-middle text-transparent transition-all duration-300 overflow-hidden select-none"><span class="text-indigo-300 dark:text-indigo-700 text-sm font-bold">?</span></span>`;
         const displayHtml = rawSentence.replace(/_+/g, pillHtml);
         
         const jaClass = settingsService.get().targetLang === 'ja' ? 'text-ja-wrap' : '';
@@ -197,7 +183,7 @@ export class BlanksApp {
                         <span class="text-base">🏆</span>
                         <span class="font-black text-gray-700 dark:text-white text-sm global-score-display">${scoreService.todayScore}</span>
                     </button>
-                    <button id="blanks-random-btn" class="header-icon-btn bg-white dark:bg-dark-card border border-gray-200 rounded-xl text-indigo-500 shadow-sm"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></button>
+                    <button id="blanks-random-btn" class="header-icon-btn bg-white dark:bg-dark-card border border-gray-200 rounded-xl text-indigo-500 shadow-sm"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></button>
                     <button id="blanks-close-btn" class="header-icon-btn bg-red-50 text-red-500 rounded-full shadow-sm"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
                 </div>
             </div>
@@ -212,8 +198,8 @@ export class BlanksApp {
                 </div>
                 <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-2">
                     ${choices.map(c => `
-                        <button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex items-center justify-center p-1 overflow-hidden" data-id="${c.id}">
-                            <div class="option-text text-lg font-bold text-gray-700 dark:text-white text-center leading-tight whitespace-nowrap">${c.front.main}</div>
+                        <button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex flex-col justify-center items-center p-1 overflow-hidden text-center" data-id="${c.id}">
+                            <div class="option-text text-lg font-bold text-gray-700 dark:text-white text-center leading-tight whitespace-nowrap w-full">${textService.smartWrap(c.front.main)}</div>
                         </button>
                     `).join('')}
                 </div>
@@ -242,7 +228,7 @@ export class BlanksApp {
         requestAnimationFrame(() => {
             textService.fitText(this.container.querySelector('.question-text'), 12, 18);
             textService.fitText(this.container.querySelector('.sentence-text'), 18, 42);
-            textService.fitGroup(this.container.querySelectorAll('.option-text'), 14, 40);
+            textService.fitGroup(this.container.querySelectorAll('.option-text'), 20, 48);
         });
 
         if (settingsService.get().autoPlay) {

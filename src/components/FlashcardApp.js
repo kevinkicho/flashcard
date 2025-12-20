@@ -74,7 +74,12 @@ export class FlashcardApp {
     handleCardClick() {
         this.isFlipped = !this.isFlipped;
         this.render();
-        if (this.isFlipped && settingsService.get().autoPlay && settingsService.get().waitForAudio) {
+        
+        // FIXED: Play audio on Front flip too
+        if (!this.isFlipped) {
+             this.playAudio();
+        } 
+        else if (settingsService.get().autoPlay && settingsService.get().waitForAudio) {
              this.playAudio();
         }
     }
@@ -105,7 +110,9 @@ export class FlashcardApp {
 
         const { front, back, id } = this.currentData;
         const s = settingsService.get();
+        const fontClass = s.targetLang === 'ja' ? 'font-jp' : '';
 
+        // FIXED: Added rotate-y-180 to the Back Face to prevent mirrored text
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2">
@@ -128,8 +135,8 @@ export class FlashcardApp {
                                 <button class="audio-btn p-2 text-gray-400 hover:text-indigo-500 transition-colors bg-gray-50 dark:bg-gray-800 rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></button>
                             </div>
                             
-                            <div class="flex-grow flex flex-col items-center justify-center p-4 overflow-hidden">
-                                <h2 class="fc-front-text font-black text-gray-800 dark:text-white text-center leading-tight whitespace-nowrap" data-fit="true">${front.main}</h2>
+                            <div class="flex-grow flex flex-col items-center justify-center p-2 overflow-hidden">
+                                <h2 class="fc-front-text font-black text-gray-800 dark:text-white text-center leading-tight whitespace-nowrap" data-fit="true">${textService.smartWrap(front.main)}</h2>
                                 ${front.sub ? `<p class="fc-front-sub font-medium text-gray-500 dark:text-gray-400 mt-4 text-center whitespace-nowrap" data-fit="true">${front.sub}</p>` : ''}
                             </div>
 
@@ -143,7 +150,7 @@ export class FlashcardApp {
                             </div>
 
                             <div class="flex-grow flex flex-col items-center justify-center text-center space-y-6 overflow-hidden">
-                                <h2 class="fc-back-text font-black text-indigo-600 dark:text-indigo-400 leading-none whitespace-nowrap" data-fit="true">${back.main}</h2>
+                                <h2 class="fc-back-text font-black text-indigo-600 dark:text-indigo-400 leading-none whitespace-nowrap" data-fit="true">${textService.smartWrap(back.definition)}</h2>
                                 
                                 ${back.sentenceTarget && s.showSentence ? `
                                     <div class="w-full p-4 bg-white dark:bg-dark-card rounded-xl border border-gray-100 dark:border-dark-border">
@@ -189,9 +196,8 @@ export class FlashcardApp {
             this.goto(val);
         });
 
-        // Safe Request Animation Frame
         requestAnimationFrame(() => {
-            if (!this.container) return; // FIX: Ensure container exists before fitting
+            if (!this.container) return;
             textService.fitText(this.container.querySelector('.fc-front-text'), 32, 130, true);
             textService.fitText(this.container.querySelector('.fc-back-text'), 24, 90, true);
             this.container.querySelectorAll('.fc-front-sub').forEach(el => textService.fitText(el, 16, 36, true));

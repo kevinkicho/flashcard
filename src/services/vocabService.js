@@ -29,27 +29,24 @@ class VocabService {
                         const id = parseInt(item.id);
                         
                         // 1. Determine Front (Target)
-                        let frontObj = item.front;
-                        if (!frontObj) {
+                        // Heuristic: If front.main is missing, regenerate it from raw keys
+                        let frontObj = item.front || {};
+                        if (!frontObj.main) {
                             const mainText = item.ja || item.zh || item.ko || item.ru || item.fr || item.de || item.es || item.it || item.pt || item.word || "???";
                             const subText = item.furi || item.pinyin || item.roma || "";
                             frontObj = { main: mainText, sub: subText };
-                        } else {
-                            // FIXED: Ensure main exists even if front object was present
-                            if (!frontObj.main) {
-                                frontObj.main = item.ja || item.zh || item.ko || item.word || "???";
-                            }
                         }
 
                         // 2. Determine Back (Origin/Definition)
-                        let backObj = item.back;
-                        if (!backObj) {
+                        // Heuristic: If back.main is missing, regenerate it
+                        let backObj = item.back || {};
+                        if (!backObj.main) {
                             const def = item.en || item.meaning || "???";
+                            // Map example sentences
                             const sentT = item.ja_ex || item.zh_ex || item.ko_ex || "";
                             const sentO = item.en_ex || "";
+                            // IMPORTANT: Map 'definition' to 'main' for Flashcard compatibility
                             backObj = { main: def, definition: def, sentenceTarget: sentT, sentenceOrigin: sentO };
-                        } else {
-                             if (!backObj.main) backObj.main = backObj.definition || item.en || "???";
                         }
 
                         return {
@@ -74,7 +71,6 @@ class VocabService {
         }
     }
 
-    // Helper to refresh mapping if user changes Target Language settings
     remapForLanguage(targetLang, originLang) {
         if(!this.vocabList.length) return;
         

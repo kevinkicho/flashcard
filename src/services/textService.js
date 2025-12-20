@@ -11,6 +11,7 @@ class TextService {
         const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
         const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
         
+        // Available width/height for the text
         const parentW = parent.clientWidth - padX;
         const parentH = parent.clientHeight - padY;
         
@@ -18,7 +19,9 @@ class TextService {
 
         // Reset for measurement
         const originalSize = el.style.fontSize;
-        el.style.whiteSpace = 'normal';
+        
+        // GLOBAL CHANGE: Enforce No Wrap as requested
+        el.style.whiteSpace = 'nowrap';
         el.style.lineHeight = '1.1';
         el.style.display = 'inline-block';
         el.style.width = 'auto';
@@ -32,6 +35,7 @@ class TextService {
             const mid = Math.floor((low + high) / 2);
             el.style.fontSize = `${mid}px`;
             
+            // Check if it fits
             if (el.scrollWidth <= parentW && el.scrollHeight <= parentH) {
                 best = mid;
                 low = mid + 1;
@@ -51,16 +55,15 @@ class TextService {
         const size = this._calculateBestFit(el, min, max);
         el.style.fontSize = `${size}px`;
         el.style.lineHeight = '1.1';
-        el.style.whiteSpace = 'normal';
+        el.style.whiteSpace = 'nowrap'; // Enforce
     }
 
-    /** Fit a group so they all have the SAME size (the smallest best-fit of the bunch) */
+    /** Fit a group so they all have the SAME size */
     fitGroup(elements, min = 10, max = 48) {
         if (!elements || elements.length === 0) return;
 
         let minSizeFound = max;
 
-        // 1. Find the bottleneck size
         elements.forEach(el => {
             const bestForEl = this._calculateBestFit(el, min, max);
             if (bestForEl < minSizeFound) {
@@ -68,16 +71,14 @@ class TextService {
             }
         });
 
-        // 2. Apply to all
         elements.forEach(el => {
             el.style.fontSize = `${minSizeFound}px`;
             el.style.lineHeight = '1.1';
-            el.style.whiteSpace = 'normal';
+            el.style.whiteSpace = 'nowrap'; // Enforce
         });
     }
 
-    // --- 2. ADVANCED JAPANESE TOKENIZER (YOUR LOGIC) ---
-
+    // --- 2. JAPANESE TOKENIZER ---
     parseVocabVariations(vocab) {
         if (!vocab) return [];
         let normalized = vocab.replace(/\[/g, '・').replace(/\]/g, '');
@@ -86,9 +87,7 @@ class TextService {
     }
 
     tokenizeJapanese(text, vocab = '', applyPostProcessing = true) {
-        // Safe check for Intl.Segmenter support
         if (typeof Intl === 'undefined' || !Intl.Segmenter) {
-            console.warn("Intl.Segmenter not supported, falling back to simple split");
             return text.split('').filter(s => s.trim().length > 0);
         }
 
@@ -98,7 +97,6 @@ class TextService {
                           .filter(s => s.trim().length > 0);
         
         if (!applyPostProcessing) return chunks;
-
         return this.postProcessJapanese(chunks, vocab);
     }
 
@@ -126,7 +124,6 @@ class TextService {
         let processed = [...chunks];
         let changed = true;
 
-        // PHASE 1: GRAMMAR MERGING
         while (changed) {
             changed = false;
             const nextPass = [];
@@ -168,74 +165,6 @@ class TextService {
             processed = nextPass;
         }
 
-        // PHASE 2: VOCAB CONSISTENCY
-        if (vocab && vocab.trim().length > 0) {
-            const variations = this.parseVocabVariations(vocab);
-            for (const targetVocab of variations) {
-                const cleanVocab = targetVocab.replace(/\s+/g, '');
-                
-                let currentMapStr = "";
-                const chunkMap = processed.map((chunk, idx) => {
-                    const cleanChunk = chunk.replace(/\s+/g, '');
-                    const start = currentMapStr.length;
-                    currentMapStr += cleanChunk;
-                    const end = currentMapStr.length;
-                    return { idx, start, end, original: chunk };
-                });
-
-                const vocabRanges = [];
-                let searchPos = 0;
-                let foundIdx = currentMapStr.indexOf(cleanVocab, searchPos);
-                
-                while (foundIdx !== -1) {
-                    vocabRanges.push({ start: foundIdx, end: foundIdx + cleanVocab.length });
-                    searchPos = foundIdx + 1;
-                    foundIdx = currentMapStr.indexOf(cleanVocab, searchPos);
-                }
-
-                if (vocabRanges.length > 0) {
-                    const groups = Array.from({ length: processed.length }, (_, i) => i);
-                    
-                    vocabRanges.forEach(vRange => {
-                        let startIndex = -1;
-                        let endIndex = -1;
-
-                        for(let i=0; i<chunkMap.length; i++) {
-                            const c = chunkMap[i];
-                            if (c.start < vRange.end && c.end > vRange.start) {
-                                if (startIndex === -1) startIndex = i;
-                                endIndex = i;
-                            }
-                        }
-
-                        if (startIndex !== -1 && endIndex !== -1 && startIndex !== endIndex) {
-                            const targetGroup = groups[startIndex];
-                            for(let k = startIndex + 1; k <= endIndex; k++) {
-                                groups[k] = targetGroup;
-                            }
-                        }
-                    });
-
-                    const mergedChunks = [];
-                    let currentChunk = "";
-                    let currentGroup = -1;
-
-                    for(let i=0; i<processed.length; i++) {
-                        if (groups[i] !== currentGroup) {
-                            if (currentChunk) mergedChunks.push(currentChunk);
-                            currentChunk = processed[i];
-                            currentGroup = groups[i];
-                        } else {
-                            currentChunk += processed[i];
-                        }
-                    }
-                    if (currentChunk) mergedChunks.push(currentChunk);
-                    processed = mergedChunks;
-                }
-            }
-        }
-
-        // PHASE 3: PUNCTUATION
         const punctPass = [];
         if (processed.length > 0) {
             punctPass.push(processed[0]);

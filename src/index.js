@@ -14,7 +14,7 @@ import { blanksApp } from './components/BlanksApp';
 import { listeningApp } from './components/ListeningApp'; 
 import { matchApp } from './components/MatchApp'; 
 import { memoryApp } from './components/MemoryApp'; 
-import { finderApp } from './components/FinderApp'; // NEW
+import { finderApp } from './components/FinderApp';
 import { constructorApp } from './components/ConstructorApp';
 import { writingApp } from './components/WritingApp';
 import { trueFalseApp } from './components/TrueFalseApp';
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         listening: document.getElementById('listening-view'),
         match: document.getElementById('match-view'),
         memory: document.getElementById('memory-view'),
-        finder: document.getElementById('finder-view'), // NEW
+        finder: document.getElementById('finder-view'),
         constructor: document.getElementById('constructor-view'),
         writing: document.getElementById('writing-view'),
         truefalse: document.getElementById('truefalse-view'),
@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (viewName === 'listening' && views.listening) { listeningApp.mount('listening-view'); currentActiveApp = listeningApp; if(lastId) listeningApp.next(lastId); }
             if (viewName === 'match' && views.match) { matchApp.mount('match-view'); currentActiveApp = matchApp; }
             if (viewName === 'memory' && views.memory) { memoryApp.mount('memory-view'); currentActiveApp = memoryApp; }
-            if (viewName === 'finder' && views.finder) { finderApp.mount('finder-view'); currentActiveApp = finderApp; } // NEW
+            if (viewName === 'finder' && views.finder) { finderApp.mount('finder-view'); currentActiveApp = finderApp; }
             if (viewName === 'constructor' && views.constructor) { constructorApp.mount('constructor-view'); currentActiveApp = constructorApp; }
             if (viewName === 'writing' && views.writing) { writingApp.mount('writing-view'); currentActiveApp = writingApp; }
             if (viewName === 'truefalse' && views.truefalse) { trueFalseApp.mount('truefalse-view'); currentActiveApp = trueFalseApp; }
@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bindNav('menu-listening-btn', 'listening'); 
     bindNav('menu-match-btn', 'match'); 
     bindNav('menu-memory-btn', 'memory'); 
-    bindNav('menu-finder-btn', 'finder'); // Add to index.html
+    bindNav('menu-finder-btn', 'finder'); 
     bindNav('menu-constructor-btn', 'constructor');
     bindNav('menu-writing-btn', 'writing');
     bindNav('menu-truefalse-btn', 'truefalse');
@@ -216,6 +216,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let resizeTimer;
     window.addEventListener('resize', () => {
+        // FIX: If typing (input/textarea focused), DO NOT re-render.
+        // This prevents the keyboard from closing and input being lost on mobile resize.
+        if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+            return;
+        }
+
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
             if (currentActiveApp && currentActiveApp.render) currentActiveApp.render();

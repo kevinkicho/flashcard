@@ -55,6 +55,15 @@ export class WritingApp {
         this.render();
     }
 
+    // New: Reveal answer in input
+    revealAnswer() {
+        const input = document.getElementById('writing-input');
+        if(input && this.currentData) {
+            input.value = this.currentData.front.main;
+            input.focus();
+        }
+    }
+
     checkAnswer() {
         if(this.isProcessing) return;
         const input = document.getElementById('writing-input');
@@ -65,7 +74,10 @@ export class WritingApp {
         
         if (guess === correct) {
             this.isProcessing = true;
-            input.classList.add('bg-green-100', 'text-green-800');
+            // WIN EFFECT
+            input.classList.remove('bg-gray-100', 'dark:bg-gray-800');
+            input.classList.add('bg-green-500', 'text-white', 'border-green-600', 'animate-celebrate');
+            
             scoreService.addScore('writing', 10);
             if (settingsService.get().autoPlay) audioService.speak(this.currentData.front.main, settingsService.get().targetLang);
             setTimeout(() => this.next(), 1000);
@@ -81,7 +93,6 @@ export class WritingApp {
 
     render() {
         if (!this.container) return;
-        const { item } = { item: this.currentData };
         const originText = this.currentData.back.main || this.currentData.back.definition;
 
         this.container.innerHTML = `
@@ -109,7 +120,7 @@ export class WritingApp {
             </div>
 
             <div class="w-full h-full pt-20 pb-40 px-6 max-w-lg mx-auto flex flex-col justify-center gap-8">
-                <div class="bg-white dark:bg-dark-card p-8 rounded-3xl shadow-sm text-center border-2 border-gray-100 dark:border-dark-border">
+                <div id="write-q-box" class="bg-white dark:bg-dark-card p-8 rounded-3xl shadow-sm text-center border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform">
                     <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Translate</span>
                     <h2 class="text-3xl font-black text-gray-800 dark:text-white mt-2 leading-tight">${originText}</h2>
                 </div>
@@ -140,12 +151,12 @@ export class WritingApp {
         this.container.querySelector('#write-next-btn').addEventListener('click', () => this.next());
         this.container.querySelector('#write-submit-btn').addEventListener('click', () => this.checkAnswer());
         this.container.querySelector('#write-hint-btn').addEventListener('click', () => this.playHint());
+        this.container.querySelector('#write-q-box').addEventListener('click', () => this.revealAnswer());
         
         const idInput = this.container.querySelector('#write-id-input');
         const goBtn = this.container.querySelector('#write-go-btn');
         goBtn.addEventListener('click', () => this.gotoId(idInput.value));
         
-        // FIXED: Stop event propagation so typing works
         const textInput = this.container.querySelector('#writing-input');
         textInput.addEventListener('keydown', (e) => e.stopPropagation());
         textInput.addEventListener('keypress', (e) => {

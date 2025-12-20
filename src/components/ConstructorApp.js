@@ -57,7 +57,6 @@ export class ConstructorApp {
         const item = list[this.currentIndex];
 
         const targetWord = item.front.main;
-        
         let chars = targetWord.split(''); 
         
         this.charPool = chars.map((char, i) => ({ char, id: i, used: false })).sort(() => 0.5 - Math.random());
@@ -71,9 +70,8 @@ export class ConstructorApp {
         const c = this.charPool[poolIdx];
         if (c.used) return;
 
-        if(settingsService.get().clickAudio) {
-            audioService.speak(c.char, settingsService.get().targetLang);
-        }
+        // NEW: Play Audio on Click
+        audioService.speak(c.char, settingsService.get().targetLang);
 
         this.builtChars.push(poolIdx);
         c.used = true;
@@ -140,7 +138,7 @@ export class ConstructorApp {
             </div>
 
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-lg mx-auto flex flex-col gap-6">
-                <div id="const-question-box" class="bg-white dark:bg-dark-card p-4 rounded-3xl shadow-sm border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform hover:border-emerald-200 group flex flex-col h-32 justify-center items-center">
+                <div id="const-question-box" class="bg-white dark:bg-dark-card p-4 rounded-3xl shadow-sm text-center border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform hover:border-emerald-200 group flex flex-col h-32 justify-center items-center">
                     <span class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Build</span>
                     <h2 class="font-bold text-gray-800 dark:text-white w-full text-center flex-1 flex items-center justify-center" data-fit="true">${originText}</h2>
                 </div>
@@ -176,6 +174,7 @@ export class ConstructorApp {
         `;
 
         this.container.querySelector('#const-close-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
+        // CLICK LISTENER FOR QUESTION BOX
         this.container.querySelector('#const-question-box').addEventListener('click', () => this.playHint());
         this.container.querySelector('#const-prev-btn').addEventListener('click', () => this.prev());
         this.container.querySelector('#const-next-btn').addEventListener('click', () => this.next());

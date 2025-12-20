@@ -27,9 +27,9 @@ class AudioService {
         let clean = text;
 
         if (lang === 'ja' || lang === 'ja-JP') {
-            // Updated Regex to catch various middle dots, bullets, and parenthesis
-            // Includes: ・ (Japanese), · (Middle Dot), • (Bullet), （ (Full-width paren), ( (Half-width paren)
-            clean = clean.split(/[・･\u30FB\uFF65\u00B7\u2022（(]/)[0];
+            // Updated Regex: Stop at various separators (dots, parens, brackets)
+            // This prevents reading "Word (Definition)" -> only reads "Word"
+            clean = clean.split(/[・･\u30FB\uFF65\u00B7\u2022（(\[<]/)[0];
         }
 
         return clean.trim();

@@ -210,8 +210,12 @@ export class BlanksApp {
                         <div class="sentence-text text-2xl md:text-3xl font-medium text-gray-800 dark:text-white text-center leading-relaxed w-full ${jaClass}">${displayHtml}</div>
                     </div>
                 </div>
-                <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-3">
-                    ${choices.map(c => `<button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex items-center justify-center" data-id="${c.id}"><div class="option-text text-lg font-bold text-gray-700 dark:text-white text-center">${c.front.main}</div></button>`).join('')}
+                <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-2">
+                    ${choices.map(c => `
+                        <button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex items-center justify-center p-1 overflow-hidden" data-id="${c.id}">
+                            <div class="option-text text-lg font-bold text-gray-700 dark:text-white text-center leading-tight whitespace-nowrap">${c.front.main}</div>
+                        </button>
+                    `).join('')}
                 </div>
             </div>
             <div class="fixed bottom-0 left-0 right-0 p-6 z-40 bg-gradient-to-t from-gray-100 via-gray-100 to-transparent dark:from-dark-bg"><div class="max-w-md mx-auto flex gap-4"><button id="blanks-prev-btn" class="flex-1 h-16 bg-white border border-gray-200 rounded-3xl shadow-sm flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg></button><button id="blanks-next-btn" class="flex-1 h-16 bg-indigo-600 text-white rounded-3xl shadow-xl flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg></button></div></div>
@@ -238,7 +242,7 @@ export class BlanksApp {
         requestAnimationFrame(() => {
             textService.fitText(this.container.querySelector('.question-text'), 12, 18);
             textService.fitText(this.container.querySelector('.sentence-text'), 18, 42);
-            textService.fitGroup(this.container.querySelectorAll('.option-text'), 14, 32);
+            textService.fitGroup(this.container.querySelectorAll('.option-text'), 14, 40);
         });
 
         if (settingsService.get().autoPlay) {

@@ -1,142 +1,101 @@
-/* @use must be first */
-@use "flashcard";
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* --- TARGETED FIXES --- */
-
-button, a, input, [role="button"] {
-    -webkit-tap-highlight-color: transparent;
+/* --- FLASHCARD 3D STYLES (Inlined to fix import errors) --- */
+.card-scene {
+  perspective: 1000px;
 }
 
-.no-tap-highlight {
-    -webkit-tap-highlight-color: transparent !important;
-    outline: none !important;
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
 }
 
+.card-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.font-jp {
+  font-family: 'Noto Sans JP', sans-serif;
+}
+/* --------------------------------------------------------- */
+
+/* Global Body Styles */
 body {
-    font-family: 'Noto Sans JP', sans-serif;
-    overscroll-behavior: none;
-    background-color: #111;
-    touch-action: manipulation;
+  font-family: 'Inter', sans-serif;
+  overflow: hidden; /* Prevent scrolling on main body */
+  touch-action: manipulation; /* Improves touch response */
 }
 
-.header-icon-btn {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 0.375rem !important;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 0.75rem;
-    transition: background-color 0.2s, transform 0.1s;
-    
-    svg {
-        width: 1.5rem;
-        height: 1.5rem;
-        flex-shrink: 0;
-    }
-
-    &:active {
-        transform: scale(0.95);
-    }
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 3px;
 }
 
-/* Animations */
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+/* Utilities for Games */
+.shake {
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
 }
 
-.animate-fade-in-up {
-    animation: fadeInUp 0.5s ease-out forwards;
-}
-
-@keyframes slideDownBounce {
-    0% { transform: translate(-50%, -150%) scale(0.5); opacity: 0; }
-    60% { transform: translate(-50%, 20%) scale(1.1); opacity: 1; }
-    80% { transform: translate(-50%, -10%) scale(0.95); }
-    100% { transform: translate(-50%, 0) scale(1); }
-}
-
-@keyframes glowPulse {
-    0% { box-shadow: 0 0 10px #fbbf24; }
-    50% { box-shadow: 0 0 30px #f59e0b, 0 0 10px #fbbf24 inset; }
-    100% { box-shadow: 0 0 10px #fbbf24; }
-}
-
-@keyframes shimmer {
-    0% { transform: translateX(-100%) skewX(-15deg); }
-    100% { transform: translateX(200%) skewX(-15deg); }
-}
-
-/* NOBLE/DIGNIFIED WIN ANIMATION */
-@keyframes celebrateRoyal {
-    0% { border-color: transparent; box-shadow: none; }
-    30% { border-color: #fbbf24; box-shadow: 0 0 25px rgba(251, 191, 36, 0.4), inset 0 0 10px rgba(251, 191, 36, 0.2); }
-    70% { border-color: #f59e0b; box-shadow: 0 0 40px rgba(245, 158, 11, 0.6), inset 0 0 20px rgba(245, 158, 11, 0.3); }
-    100% { border-color: transparent; box-shadow: none; }
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
 }
 
 .animate-celebrate {
-    animation: celebrateRoyal 1.2s ease-in-out;
+  animation: celebrate 0.5s ease-out;
 }
 
-#achievement-popup {
-    animation: slideDownBounce 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+@keyframes celebrate {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* Animation for Achievement Popup */
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+.animate-shimmer {
+  animation: shimmer 2s infinite;
 }
 
 .achievement-icon-glow {
-    animation: glowPulse 2s infinite;
-}
-
-.animate-shimmer {
-    animation: shimmer 2s infinite linear;
-}
-
-/* Chart Styles */
-.chart-bar-container {
-    cursor: pointer;
-    transition: transform 0.1s;
-    position: relative;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-}
-.chart-bar-container:active {
-    transform: scale(0.95);
-}
-
-.chart-bar {
-    width: 100%;
-    background: #F3F4F6;
-    border-radius: 6px;
-    min-height: 6px;
-    position: relative;
-    display: flex;
-    flex-direction: column-reverse;
-    overflow: hidden;
-}
-.dark .chart-bar { background: #374151; }
-
-.text-fc { color: #818cf8; }
-.text-qz { color: #c084fc; }
-.text-st { color: #f472b6; }
-.text-bl { color: #2dd4bf; }
-
-.chart-label { margin-top: 6px; font-size: 10px; font-weight: 700; }
-
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
-.dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #4b5563; }
-
-/* Japanese Text Optimization */
-.text-ja-wrap {
-    word-break: keep-all; /* Keeps words together */
-    overflow-wrap: anywhere; /* Allows breaking long strings if necessary */
-    line-break: strict; /* Strict rules for punctuation */
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
 }

@@ -2,18 +2,22 @@ import { vocabService } from '../services/vocabService';
 import { settingsService } from '../services/settingsService';
 import { audioService } from '../services/audioService';
 import { textService } from '../services/textService';
-// Removed: import { Card } from './Card'; // Not used in the current render method
 
 export class FlashcardApp {
     constructor() {
         this.container = null;
+        this.currentData = null;
         this.currentIndex = 0;
         this.isFlipped = false;
-        // Removed: this.cardComponent = new Card(); // This was causing the "not a constructor" error
+        this.history = [];
     }
 
     mount(elementId) {
         this.container = document.getElementById(elementId);
+        const list = vocabService.getAll();
+        if (list && list.length > 0) {
+           this.currentIndex = vocabService.getRandomIndex();
+        }
         this.render();
     }
 
@@ -21,79 +25,87 @@ export class FlashcardApp {
         this.render();
     }
 
-    goto(id) {
-        const idx = vocabService.findIndexById(id);
-        if (idx !== -1) {
-            this.currentIndex = idx;
+    loadGame(index) {
+        const list = vocabService.getAll();
+        if (!list || list.length === 0) {
+            this.currentData = null;
+        } else {
+            this.currentIndex = (index + list.length) % list.length;
+            this.currentData = list[this.currentIndex];
             this.isFlipped = false;
-            this.render();
+            
+            if (settingsService.get().autoPlay) {
+                setTimeout(() => this.playAudio(), 500);
+            }
+        }
+        this.render();
+        if(this.currentData) window.saveGameHistory('flashcard', this.currentData.id);
+    }
+
+    next(id = null) {
+        if (id !== null) {
+             const idx = vocabService.findIndexById(id);
+             if(idx !== -1) this.loadGame(idx);
+        } else {
+             if (this.currentData) this.history.push(this.currentIndex);
+             this.loadGame(this.currentIndex + 1);
         }
     }
 
-    next() {
-        const list = vocabService.getFlashcardData();
-        if (!list.length) return;
-        this.currentIndex = (this.currentIndex + 1) % list.length;
-        this.isFlipped = false;
-        this.render();
-    }
-
     prev() {
-        const list = vocabService.getFlashcardData();
-        if (!list.length) return;
-        this.currentIndex = (this.currentIndex - 1 + list.length) % list.length;
-        this.isFlipped = false;
-        this.render();
+        if (this.history.length > 0) {
+            this.loadGame(this.history.pop());
+        } else {
+            this.loadGame(this.currentIndex - 1);
+        }
+    }
+    
+    goto(id) {
+      const idx = vocabService.findIndexById(id);
+      if(idx !== -1) this.loadGame(idx);
     }
 
-    flip() {
+    handleCardClick() {
         this.isFlipped = !this.isFlipped;
-        this.updateCardState();
-        if (this.isFlipped && settingsService.get().autoPlay) {
-            this.playAudio();
+        this.render();
+        if (this.isFlipped && settingsService.get().autoPlay && settingsService.get().waitForAudio) {
+             this.playAudio();
         }
     }
 
     playAudio() {
-        const data = vocabService.getFlashcardData()[this.currentIndex];
-        if (data) {
-            // Audio plays target language on flip (Back) or if front is target
-            const lang = settingsService.get().targetLang;
-            const text = data.front.main; // Usually just read the main word
-            audioService.speak(text, lang);
-        }
-    }
-
-    updateCardState() {
-        const cardInner = this.container.querySelector('.card-inner');
-        if (cardInner) {
-            if (this.isFlipped) cardInner.classList.add('is-flipped');
-            else cardInner.classList.remove('is-flipped');
-        }
+        if (!this.currentData) return;
+        const s = settingsService.get();
+        const lang = this.isFlipped ? s.originLang : s.targetLang;
+        const text = this.isFlipped 
+            ? (this.currentData.back.main || this.currentData.back.definition) 
+            : this.currentData.front.main;
+            
+        audioService.speak(text, lang);
     }
 
     render() {
         if (!this.container) return;
-        const list = vocabService.getFlashcardData();
-        if (!list || list.length === 0) {
-            this.container.innerHTML = '<div class="text-center p-10 text-gray-500">No vocabulary data loaded.</div>';
+        
+        if (!this.currentData) {
+             const list = vocabService.getAll();
+             if(list.length > 0) {
+                 this.loadGame(this.currentIndex);
+                 return; 
+             }
+            this.container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No vocabulary data available.</div>';
             return;
         }
 
-        const item = list[this.currentIndex];
+        const { front, back, id } = this.currentData;
         const s = settingsService.get();
-
-        // Prepare Example Text
-        const exTarget = item.back.sentenceTarget || "";
-        const exOrigin = item.back.sentenceOrigin || "";
-        const hasExample = exTarget && s.showSentence;
 
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2">
-                    <div class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full pl-1 pr-3 py-1 flex items-center shadow-sm">
+                    <div class="flex items-center bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-full pl-1 pr-3 py-1 flex items-center shadow-sm">
                         <span class="bg-indigo-100 text-indigo-600 text-xs font-bold px-2 py-1 rounded-full mr-2">ID</span>
-                        <span class="font-bold text-gray-700 dark:text-white text-sm">${item.id}</span>
+                        <span class="font-bold text-gray-700 dark:text-white text-sm">${id}</span>
                     </div>
                     <button class="game-edit-btn header-icon-btn bg-gray-200 dark:bg-gray-800 rounded-full text-gray-500 hover:text-indigo-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg></button>
                 </div>
@@ -101,46 +113,74 @@ export class FlashcardApp {
             </div>
 
             <div class="w-full h-full pt-20 pb-28 px-6 flex flex-col items-center justify-center">
-                <div class="card-scene w-full max-w-md aspect-[3/4] max-h-[50vh] relative mb-6">
-                    <div class="card-inner w-full h-full relative transition-transform duration-500 transform-style-3d cursor-pointer ${this.isFlipped ? 'is-flipped' : ''}" id="fc-card">
+                <div class="w-full max-w-md aspect-[3/4] relative perspective group cursor-pointer" id="flashcard-container">
+                    <div id="flashcard-card" class="card-inner w-full h-full duration-500 transform-style-3d relative ${this.isFlipped ? 'rotate-y-180' : ''}">
                         
-                        <div class="card-face card-front absolute inset-0 bg-white dark:bg-dark-card rounded-[2rem] shadow-2xl flex flex-col items-center justify-center border-2 border-gray-100 dark:border-dark-border backface-hidden">
-                            <div class="text-center px-4 w-full">
-                                <h1 class="font-black text-gray-800 dark:text-white mb-2 leading-tight" data-fit="true">${item.front.main}</h1>
-                                ${item.front.sub ? `<p class="text-gray-400 font-medium text-lg mt-2">${item.front.sub}</p>` : ''}
+                        <div class="card-face absolute inset-0 backface-hidden bg-white dark:bg-dark-card rounded-3xl shadow-2xl border border-gray-100 dark:border-dark-border flex flex-col justify-between p-6">
+                            <div class="flex justify-between items-start">
+                                <span class="inline-flex items-center rounded-md bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 text-xs font-bold text-indigo-700 dark:text-indigo-300 ring-1 ring-inset ring-indigo-700/10 uppercase tracking-wider">${s.targetLang}</span>
+                                <button class="audio-btn p-2 text-gray-400 hover:text-indigo-500 transition-colors bg-gray-50 dark:bg-gray-800 rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></button>
                             </div>
-                            <div class="absolute bottom-6 text-xs font-bold text-gray-300 uppercase tracking-widest">Tap to Flip</div>
+                            
+                            <div class="flex-grow flex flex-col items-center justify-center p-4">
+                                <h2 class="fc-front-text font-black text-gray-800 dark:text-white text-center leading-tight whitespace-nowrap" data-fit="true">${front.main}</h2>
+                                ${front.sub ? `<p class="fc-front-sub font-medium text-gray-500 dark:text-gray-400 mt-4 text-center whitespace-nowrap" data-fit="true">${front.sub}</p>` : ''}
+                            </div>
+
+                            <div class="text-center text-gray-400 text-sm font-bold uppercase tracking-widest">Tap to Flip</div>
                         </div>
 
-                        <div class="card-face card-back absolute inset-0 bg-indigo-600 dark:bg-dark-card rounded-[2rem] shadow-2xl flex flex-col items-center justify-center border-2 border-indigo-500 dark:border-indigo-900 backface-hidden rotate-y-180 text-white">
-                            <div class="text-center px-4 w-full">
-                                <h2 class="font-bold text-indigo-100 dark:text-gray-300 mb-1 uppercase tracking-widest text-xs">Meaning</h2>
-                                <div class="font-black text-3xl mb-4 leading-tight">${item.back.main}</div>
-                                ${item.back.sub ? `<p class="text-indigo-200 dark:text-gray-400 text-sm">${item.back.sub}</p>` : ''}
+                        <div class="card-face absolute inset-0 backface-hidden rotate-y-180 bg-gray-50 dark:bg-dark-bg rounded-3xl shadow-xl border border-gray-200 dark:border-dark-border flex flex-col p-8">
+                             <div class="flex justify-between items-start mb-4">
+                                <span class="inline-flex items-center rounded-md bg-purple-50 dark:bg-purple-900/30 px-2 py-1 text-xs font-bold text-purple-700 dark:text-purple-300 ring-1 ring-inset ring-purple-700/10 uppercase tracking-wider">${s.originLang}</span>
+                                <button class="audio-btn p-2 text-gray-400 hover:text-purple-500 transition-colors bg-white dark:bg-dark-card rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></button>
+                            </div>
+
+                            <div class="flex-grow flex flex-col items-center justify-center text-center space-y-6">
+                                <h2 class="fc-back-text font-black text-indigo-600 dark:text-indigo-400 leading-none whitespace-nowrap" data-fit="true">${back.main}</h2>
+                                
+                                ${back.sentenceTarget && s.showSentence ? `
+                                    <div class="w-full p-4 bg-white dark:bg-dark-card rounded-xl border border-gray-100 dark:border-dark-border">
+                                        <p class="fc-back-sent text-gray-700 dark:text-white font-bold mb-2 leading-tight" data-fit="true">${back.sentenceTarget}</p>
+                                        ${back.sentenceOrigin && s.showEnglish ? `<p class="fc-back-sent-trans text-gray-500 dark:text-gray-400 font-medium leading-tight" data-fit="true">${back.sentenceOrigin}</p>` : ''}
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
                 </div>
-
-                ${hasExample ? `
-                <div class="w-full max-w-md flex-1 min-h-0 flex flex-col justify-center text-center p-2">
-                    <p class="text-lg md:text-xl font-bold text-gray-800 dark:text-white mb-1 leading-snug" data-fit="true">${exTarget}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">${exOrigin}</p>
-                </div>
-                ` : ''}
-
             </div>
 
-            <div class="fixed bottom-0 left-0 right-0 p-6 z-40 bg-gradient-to-t from-gray-100 via-gray-100 to-transparent dark:from-dark-bg"><div class="max-w-md mx-auto flex gap-4"><button id="fc-prev-btn" class="flex-1 h-16 bg-white border border-gray-200 rounded-3xl shadow-sm flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg></button><button id="fc-next-btn" class="flex-1 h-16 bg-indigo-600 text-white rounded-3xl shadow-xl flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg></button></div></div>
+            <div class="fixed bottom-0 left-0 right-0 p-4 z-40 bg-gradient-to-t from-gray-100 via-gray-100 to-transparent dark:from-dark-bg">
+                <div class="max-w-lg mx-auto flex gap-4">
+                    <button id="fc-prev-btn" class="flex-1 h-14 bg-white dark:bg-dark-card border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-95 transition-all">
+                        <svg class="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <button id="fc-next-btn" class="flex-1 h-14 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/30 flex items-center justify-center font-bold tracking-wide active:scale-95 transition-all">
+                        <svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                </div>
+            </div>
         `;
 
-        this.container.querySelector('#fc-card').addEventListener('click', () => this.flip());
-        this.container.querySelector('#fc-next-btn').addEventListener('click', () => this.next());
-        this.container.querySelector('#fc-prev-btn').addEventListener('click', () => this.prev());
         this.container.querySelector('#fc-close-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
+        this.container.querySelector('#flashcard-container').addEventListener('click', () => this.handleCardClick());
+        this.container.querySelector('#fc-prev-btn').addEventListener('click', (e) => { e.stopPropagation(); this.prev(); });
+        this.container.querySelector('#fc-next-btn').addEventListener('click', (e) => { e.stopPropagation(); this.next(); });
+        this.container.querySelectorAll('.audio-btn').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); this.playAudio(); }));
+        
+        const idInput = this.container.querySelector('#fc-id-input');
+        const goBtn = this.container.querySelector('#fc-go-btn');
+        goBtn.addEventListener('click', (e) => { e.stopPropagation(); this.goto(idInput.value); });
+        idInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') this.goto(idInput.value); });
+        idInput.addEventListener('click', (e) => e.stopPropagation());
 
         requestAnimationFrame(() => {
-            this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el));
+            textService.fitText(this.container.querySelector('.fc-front-text'), 32, 130);
+            textService.fitText(this.container.querySelector('.fc-back-text'), 24, 90);
+            this.container.querySelectorAll('.fc-front-sub').forEach(el => textService.fitText(el, 16, 36));
+            this.container.querySelectorAll('.fc-back-sent').forEach(el => textService.fitText(el, 16, 30));
+            this.container.querySelectorAll('.fc-back-sent-trans').forEach(el => textService.fitText(el, 14, 26));
         });
     }
 }

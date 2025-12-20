@@ -2,14 +2,14 @@ import { vocabService } from '../services/vocabService';
 import { settingsService } from '../services/settingsService';
 import { audioService } from '../services/audioService';
 import { textService } from '../services/textService';
-import { Card } from './Card';
+// Removed: import { Card } from './Card'; // Not used in the current render method
 
 export class FlashcardApp {
     constructor() {
         this.container = null;
         this.currentIndex = 0;
         this.isFlipped = false;
-        this.cardComponent = new Card();
+        // Removed: this.cardComponent = new Card(); // This was causing the "not a constructor" error
     }
 
     mount(elementId) {

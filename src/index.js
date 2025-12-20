@@ -50,7 +50,20 @@ document.addEventListener('DOMContentLoaded', () => {
             await loadApplicationData();
         } else { 
             console.log("No user, signing in...");
-            try { await signInAnonymously(auth); } catch(e){ console.error("Auth Error", e); } 
+            try { 
+                await signInAnonymously(auth); 
+            } catch(e) { 
+                console.error("Auth Error", e);
+                // FIX: If auth fails (e.g., API Key restriction), update UI to let user retry
+                const startBtn = document.getElementById('start-app-btn');
+                if(startBtn) {
+                    startBtn.innerText = "Connection Failed - Retry?";
+                    startBtn.disabled = false;
+                    startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    startBtn.classList.add('bg-red-500', 'text-white');
+                    startBtn.onclick = () => window.location.reload();
+                }
+            } 
             if(iconOut) iconOut.classList.remove('hidden'); 
             if(iconIn) iconIn.classList.add('hidden'); 
         }

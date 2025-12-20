@@ -21,7 +21,6 @@ export class FlashcardApp {
         this.render();
     }
 
-    // Helper to safely add event listeners
     bind(selector, event, handler) {
         if (!this.container) return;
         const el = this.container.querySelector(selector);
@@ -130,8 +129,8 @@ export class FlashcardApp {
                             </div>
                             
                             <div class="flex-grow flex flex-col items-center justify-center p-4 overflow-hidden">
-                                <h2 class="fc-front-text font-black text-gray-800 dark:text-white text-center leading-tight" data-fit="true">${front.main}</h2>
-                                ${front.sub ? `<p class="fc-front-sub font-medium text-gray-500 dark:text-gray-400 mt-4 text-center" data-fit="true">${front.sub}</p>` : ''}
+                                <h2 class="fc-front-text font-black text-gray-800 dark:text-white text-center leading-tight whitespace-nowrap" data-fit="true">${front.main}</h2>
+                                ${front.sub ? `<p class="fc-front-sub font-medium text-gray-500 dark:text-gray-400 mt-4 text-center whitespace-nowrap" data-fit="true">${front.sub}</p>` : ''}
                             </div>
 
                             <div class="text-center text-gray-400 text-sm font-bold uppercase tracking-widest">Tap to Flip</div>
@@ -144,12 +143,12 @@ export class FlashcardApp {
                             </div>
 
                             <div class="flex-grow flex flex-col items-center justify-center text-center space-y-6 overflow-hidden">
-                                <h2 class="fc-back-text font-black text-indigo-600 dark:text-indigo-400 leading-none" data-fit="true">${back.main}</h2>
+                                <h2 class="fc-back-text font-black text-indigo-600 dark:text-indigo-400 leading-none whitespace-nowrap" data-fit="true">${back.main}</h2>
                                 
                                 ${back.sentenceTarget && s.showSentence ? `
                                     <div class="w-full p-4 bg-white dark:bg-dark-card rounded-xl border border-gray-100 dark:border-dark-border">
-                                        <p class="fc-back-sent text-gray-700 dark:text-white font-bold mb-2 leading-tight" data-fit="true">${back.sentenceTarget}</p>
-                                        ${back.sentenceOrigin && s.showEnglish ? `<p class="fc-back-sent-trans text-gray-500 dark:text-gray-400 font-medium leading-tight" data-fit="true">${back.sentenceOrigin}</p>` : ''}
+                                        <p class="fc-back-sent text-gray-700 dark:text-white font-bold mb-2 leading-tight whitespace-nowrap" data-fit="true">${back.sentenceTarget}</p>
+                                        ${back.sentenceOrigin && s.showEnglish ? `<p class="fc-back-sent-trans text-gray-500 dark:text-gray-400 font-medium leading-tight whitespace-nowrap" data-fit="true">${back.sentenceOrigin}</p>` : ''}
                                     </div>
                                 ` : ''}
                             </div>

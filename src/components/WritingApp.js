@@ -10,15 +10,38 @@ export class WritingApp {
         this.currentIndex = 0;
         this.currentData = null;
         this.isProcessing = false;
+        this.categories = [];
+        this.currentCategory = 'All';
     }
 
     mount(elementId) {
         this.container = document.getElementById(elementId);
+        this.updateCategories();
         this.random();
     }
 
+    updateCategories() {
+        const all = vocabService.getAll();
+        const cats = new Set(all.map(i => i.category || 'Uncategorized'));
+        this.categories = ['All', ...cats];
+    }
+
+    setCategory(cat) {
+        this.currentCategory = cat;
+        this.random();
+    }
+
+    getFilteredList() {
+        const all = vocabService.getAll();
+        if (this.currentCategory === 'All') return all;
+        return all.filter(i => (i.category || 'Uncategorized') === this.currentCategory);
+    }
+
     random() {
-        this.currentIndex = vocabService.getRandomIndex();
+        const list = this.getFilteredList();
+        if (list.length === 0) return;
+        const randItem = list[Math.floor(Math.random() * list.length)];
+        this.currentIndex = vocabService.findIndexById(randItem.id);
         this.loadGame();
     }
 
@@ -28,15 +51,21 @@ export class WritingApp {
             const idx = vocabService.findIndexById(id);
             if (idx !== -1) this.currentIndex = idx;
         } else {
-            const list = vocabService.getAll();
-            this.currentIndex = (this.currentIndex + 1) % list.length;
+            const list = this.getFilteredList();
+            const currentItem = vocabService.getAll()[this.currentIndex];
+            let listIdx = list.findIndex(i => i.id === currentItem.id);
+            listIdx = (listIdx + 1) % list.length;
+            this.currentIndex = vocabService.findIndexById(list[listIdx].id);
         }
         this.loadGame();
     }
 
     prev() {
-        const list = vocabService.getAll();
-        this.currentIndex = (this.currentIndex - 1 + list.length) % list.length;
+        const list = this.getFilteredList();
+        const currentItem = vocabService.getAll()[this.currentIndex];
+        let listIdx = list.findIndex(i => i.id === currentItem.id);
+        listIdx = (listIdx - 1 + list.length) % list.length;
+        this.currentIndex = vocabService.findIndexById(list[listIdx].id);
         this.loadGame();
     }
 
@@ -72,11 +101,9 @@ export class WritingApp {
         const guess = input.value.trim().toLowerCase();
         const correctFull = this.currentData.front.main.toLowerCase();
         
-        // NEW LOGIC: Split by separators and check if guess matches ANY variation
-        // Separators: ・(U+30FB), ･(U+FF65), comma, period, Japanese comma(、), Japanese period(。)
+        // Split by separators
         const variations = correctFull.split(/[・･,、.。]+/);
         
-        // Check if guess matches the full string OR any of the split parts
         const isCorrect = (guess === correctFull) || variations.some(v => v.trim() === guess);
         
         if (isCorrect) {
@@ -100,6 +127,16 @@ export class WritingApp {
     render() {
         if (!this.container) return;
         const originText = this.currentData.back.main || this.currentData.back.definition;
+
+        const pillsHtml = `
+            <div class="w-full overflow-x-auto whitespace-nowrap px-4 pb-2 mb-2 flex gap-2 no-scrollbar">
+                ${this.categories.map(cat => `
+                    <button class="category-pill px-4 py-1 rounded-full text-sm font-bold border ${this.currentCategory === cat ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-white dark:bg-dark-card text-gray-500 border-gray-200 dark:border-gray-700'}" data-cat="${cat}">
+                        ${cat}
+                    </button>
+                `).join('')}
+            </div>
+        `;
 
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
@@ -125,7 +162,8 @@ export class WritingApp {
                 </div>
             </div>
 
-            <div class="w-full h-full pt-20 pb-40 px-6 max-w-lg mx-auto flex flex-col justify-center gap-8">
+            <div class="w-full h-full pt-20 pb-40 px-6 max-w-lg mx-auto flex flex-col justify-center gap-6">
+                ${pillsHtml}
                 <div id="write-q-box" class="bg-white dark:bg-dark-card p-8 rounded-3xl shadow-sm text-center border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform">
                     <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Translate</span>
                     <h2 class="text-3xl font-black text-gray-800 dark:text-white mt-2 leading-tight">${textService.smartWrap(originText)}</h2>
@@ -159,6 +197,10 @@ export class WritingApp {
         this.container.querySelector('#write-hint-btn').addEventListener('click', () => this.playHint());
         this.container.querySelector('#write-q-box').addEventListener('click', () => this.revealAnswer());
         
+        this.container.querySelectorAll('.category-pill').forEach(btn => {
+            btn.addEventListener('click', (e) => this.setCategory(e.currentTarget.dataset.cat));
+        });
+
         const idInput = this.container.querySelector('#write-id-input');
         const goBtn = this.container.querySelector('#write-go-btn');
         goBtn.addEventListener('click', () => this.gotoId(idInput.value));

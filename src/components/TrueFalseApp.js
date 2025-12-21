@@ -11,15 +11,38 @@ export class TrueFalseApp {
         this.currentIndex = 0;
         this.isProcessing = false;
         this.isCorrectPair = false; 
+        this.categories = [];
+        this.currentCategory = 'All';
     }
 
     mount(elementId) {
         this.container = document.getElementById(elementId);
+        this.updateCategories();
         this.random();
     }
 
+    updateCategories() {
+        const all = vocabService.getAll();
+        const cats = new Set(all.map(i => i.category || 'Uncategorized'));
+        this.categories = ['All', ...cats];
+    }
+
+    setCategory(cat) {
+        this.currentCategory = cat;
+        this.random();
+    }
+
+    getFilteredList() {
+        const all = vocabService.getAll();
+        if (this.currentCategory === 'All') return all;
+        return all.filter(i => (i.category || 'Uncategorized') === this.currentCategory);
+    }
+
     random() {
-        this.currentIndex = vocabService.getRandomIndex();
+        const list = this.getFilteredList();
+        if (list.length === 0) return;
+        const randItem = list[Math.floor(Math.random() * list.length)];
+        this.currentIndex = vocabService.findIndexById(randItem.id);
         this.loadGame();
     }
 
@@ -29,16 +52,22 @@ export class TrueFalseApp {
             const idx = vocabService.findIndexById(id);
             if (idx !== -1) this.currentIndex = idx;
         } else {
-            const list = vocabService.getAll();
-            this.currentIndex = (this.currentIndex + 1) % list.length;
+            const list = this.getFilteredList();
+            const currentItem = vocabService.getAll()[this.currentIndex];
+            let listIdx = list.findIndex(i => i.id === currentItem.id);
+            listIdx = (listIdx + 1) % list.length;
+            this.currentIndex = vocabService.findIndexById(list[listIdx].id);
         }
         this.loadGame();
     }
 
     prev() {
         this.isProcessing = false;
-        const list = vocabService.getAll();
-        this.currentIndex = (this.currentIndex - 1 + list.length) % list.length;
+        const list = this.getFilteredList();
+        const currentItem = vocabService.getAll()[this.currentIndex];
+        let listIdx = list.findIndex(i => i.id === currentItem.id);
+        listIdx = (listIdx - 1 + list.length) % list.length;
+        this.currentIndex = vocabService.findIndexById(list[listIdx].id);
         this.loadGame();
     }
 
@@ -89,9 +118,7 @@ export class TrueFalseApp {
             
             box.classList.add('animate-celebrate', 'border-green-500', 'bg-green-50', 'dark:bg-green-900/20');
 
-            // CORRECT GUESS: "NO" (It was false, User said No)
             if (!userGuessedTrue && !this.isCorrectPair) { 
-                // Reveal the ACTUAL meaning so they learn
                 if(meaningEl) {
                     meaningEl.innerHTML = `
                         <div class="text-gray-400 text-sm mb-1 line-through opacity-50">${textService.smartWrap(this.currentData.displayMeaning)}</div>
@@ -101,16 +128,12 @@ export class TrueFalseApp {
                 }
                 setTimeout(() => this.next(), 2000);
             } else {
-                // User said True, it was True -> Just success
                 setTimeout(() => this.next(), 800);
             }
         } else {
-            // WRONG GUESS
             box.classList.add('shake', 'border-red-500', 'bg-red-50', 'dark:bg-red-900/20');
             
             if(meaningEl) {
-                // Case 1: Was Correct (YES), User said NO.
-                // Do NOT cross out. Just emphasize "YES, it is [Meaning]"
                 if (this.isCorrectPair) {
                     meaningEl.style.color = '#EF4444';
                     meaningEl.innerHTML = `
@@ -118,8 +141,6 @@ export class TrueFalseApp {
                         <span class="block text-xs font-bold text-red-500 mt-2 uppercase tracking-widest">It was correct!</span>
                     `;
                 } 
-                // Case 2: Was Wrong (NO), User said YES.
-                // Cross out the displayed meaning, show real meaning.
                 else {
                     meaningEl.style.color = '#EF4444'; 
                     meaningEl.innerHTML = `
@@ -140,6 +161,16 @@ export class TrueFalseApp {
     render() {
         if (!this.container) return;
         const { item, displayMeaning } = this.currentData;
+
+        const pillsHtml = `
+            <div class="w-full overflow-x-auto whitespace-nowrap px-4 pb-2 mb-2 flex gap-2 no-scrollbar">
+                ${this.categories.map(cat => `
+                    <button class="category-pill px-4 py-1 rounded-full text-sm font-bold border ${this.currentCategory === cat ? 'bg-orange-500 text-white border-orange-500' : 'bg-white dark:bg-dark-card text-gray-500 border-gray-200 dark:border-gray-700'}" data-cat="${cat}">
+                        ${cat}
+                    </button>
+                `).join('')}
+            </div>
+        `;
 
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
@@ -165,7 +196,8 @@ export class TrueFalseApp {
                 </div>
             </div>
 
-            <div class="w-full h-full pt-20 pb-28 px-6 flex flex-col items-center justify-center">
+            <div class="w-full h-full pt-20 pb-28 px-6 flex flex-col items-center justify-center gap-6">
+                ${pillsHtml}
                 <div id="tf-card" class="w-full max-w-sm bg-white dark:bg-dark-card border-4 border-gray-100 dark:border-dark-border rounded-[2rem] p-8 shadow-xl text-center flex flex-col items-center gap-6 transition-all duration-300">
                     <div class="w-full h-32 flex items-center justify-center" id="tf-q-box">
                         <h1 class="question-text font-black text-gray-800 dark:text-white leading-tight cursor-pointer active:scale-95 transition-transform w-full text-center h-full flex items-center justify-center">${textService.smartWrap(item.front.main)}</h1>
@@ -176,7 +208,7 @@ export class TrueFalseApp {
                     </div>
                 </div>
 
-                <div class="flex gap-4 w-full max-w-sm mt-8">
+                <div class="flex gap-4 w-full max-w-sm">
                      <button id="btn-false" class="flex-1 py-6 bg-transparent border-4 border-red-500 text-red-500 rounded-2xl font-black text-2xl active:scale-95 transition-transform hover:bg-red-50 dark:hover:bg-red-900/20">NO</button>
                      <button id="btn-true" class="flex-1 py-6 bg-transparent border-4 border-green-500 text-green-500 rounded-2xl font-black text-2xl active:scale-95 transition-transform hover:bg-green-50 dark:hover:bg-green-900/20">YES</button>
                 </div>
@@ -201,6 +233,10 @@ export class TrueFalseApp {
         this.container.querySelector('#tf-q-box').addEventListener('click', () => this.playAudio());
         this.container.querySelector('#btn-true').addEventListener('click', () => this.handleGuess(true));
         this.container.querySelector('#btn-false').addEventListener('click', () => this.handleGuess(false));
+        
+        this.container.querySelectorAll('.category-pill').forEach(btn => {
+            btn.addEventListener('click', (e) => this.setCategory(e.currentTarget.dataset.cat));
+        });
 
         const idInput = this.container.querySelector('#tf-id-input');
         const goBtn = this.container.querySelector('#tf-go-btn');

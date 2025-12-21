@@ -10,15 +10,38 @@ export class ReverseApp {
         this.currentIndex = 0;
         this.currentData = null;
         this.isProcessing = false;
+        this.categories = [];
+        this.currentCategory = 'All';
     }
 
     mount(elementId) {
         this.container = document.getElementById(elementId);
+        this.updateCategories();
         this.random();
     }
 
+    updateCategories() {
+        const all = vocabService.getAll();
+        const cats = new Set(all.map(i => i.category || 'Uncategorized'));
+        this.categories = ['All', ...cats];
+    }
+
+    setCategory(cat) {
+        this.currentCategory = cat;
+        this.random();
+    }
+
+    getFilteredList() {
+        const all = vocabService.getAll();
+        if (this.currentCategory === 'All') return all;
+        return all.filter(i => (i.category || 'Uncategorized') === this.currentCategory);
+    }
+
     random() {
-        this.currentIndex = vocabService.getRandomIndex();
+        const list = this.getFilteredList();
+        if (list.length === 0) return;
+        const randItem = list[Math.floor(Math.random() * list.length)];
+        this.currentIndex = vocabService.findIndexById(randItem.id);
         this.loadGame();
     }
 
@@ -28,16 +51,22 @@ export class ReverseApp {
             const idx = vocabService.findIndexById(id);
             if (idx !== -1) this.currentIndex = idx;
         } else {
-            const list = vocabService.getAll();
-            this.currentIndex = (this.currentIndex + 1) % list.length;
+            const list = this.getFilteredList();
+            const currentItem = vocabService.getAll()[this.currentIndex];
+            let listIdx = list.findIndex(i => i.id === currentItem.id);
+            listIdx = (listIdx + 1) % list.length;
+            this.currentIndex = vocabService.findIndexById(list[listIdx].id);
         }
         this.loadGame();
     }
 
     prev() {
         this.isProcessing = false;
-        const list = vocabService.getAll();
-        this.currentIndex = (this.currentIndex - 1 + list.length) % list.length;
+        const list = this.getFilteredList();
+        const currentItem = vocabService.getAll()[this.currentIndex];
+        let listIdx = list.findIndex(i => i.id === currentItem.id);
+        listIdx = (listIdx - 1 + list.length) % list.length;
+        this.currentIndex = vocabService.findIndexById(list[listIdx].id);
         this.loadGame();
     }
 
@@ -102,6 +131,16 @@ export class ReverseApp {
         const { target, choices } = this.currentData;
         const originText = target.back.main || target.back.definition;
 
+        const pillsHtml = `
+            <div class="w-full overflow-x-auto whitespace-nowrap px-4 pb-2 mb-2 flex gap-2 no-scrollbar">
+                ${this.categories.map(cat => `
+                    <button class="category-pill px-4 py-1 rounded-full text-sm font-bold border ${this.currentCategory === cat ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-white dark:bg-dark-card text-gray-500 border-gray-200 dark:border-gray-700'}" data-cat="${cat}">
+                        ${cat}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2">
@@ -127,6 +166,7 @@ export class ReverseApp {
             </div>
 
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-lg mx-auto flex flex-col gap-6 justify-center">
+                ${pillsHtml}
                 <div id="rev-q-box" class="bg-white dark:bg-dark-card p-8 rounded-3xl shadow-sm text-center border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform hover:border-indigo-200 group">
                     <div class="flex items-center justify-center gap-2 mb-2">
                         <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Select Translation</span>
@@ -162,6 +202,10 @@ export class ReverseApp {
         this.container.querySelector('#rev-next-btn').addEventListener('click', () => this.next());
         this.container.querySelector('#rev-q-box').addEventListener('click', () => this.playHint());
         
+        this.container.querySelectorAll('.category-pill').forEach(btn => {
+            btn.addEventListener('click', (e) => this.setCategory(e.currentTarget.dataset.cat));
+        });
+
         const idInput = this.container.querySelector('#rev-id-input');
         const goBtn = this.container.querySelector('#rev-go-btn');
         goBtn.addEventListener('click', () => this.gotoId(idInput.value));
@@ -169,7 +213,6 @@ export class ReverseApp {
 
         this.container.querySelectorAll('.choice-btn').forEach(btn => btn.addEventListener('click', (e) => this.handleChoice(parseInt(e.currentTarget.dataset.id), e.currentTarget)));
         
-        // UPDATED: Using Individual fitText
         requestAnimationFrame(() => {
             textService.fitText(this.container.querySelector('.question-text'), 20, 60);
             if(this.container) {

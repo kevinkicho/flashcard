@@ -10,12 +10,31 @@ export class FinderApp {
         this.currentData = null;
         this.isProcessing = false;
         this.currentIndex = 0;
+        this.categories = [];
+        this.currentCategory = 'All';
     }
 
     mount(elementId) {
         this.container = document.getElementById(elementId);
-        this.currentIndex = vocabService.getRandomIndex();
-        this.loadGame();
+        this.updateCategories();
+        this.random();
+    }
+
+    updateCategories() {
+        const all = vocabService.getAll();
+        const cats = new Set(all.map(i => i.category || 'Uncategorized'));
+        this.categories = ['All', ...cats];
+    }
+
+    setCategory(cat) {
+        this.currentCategory = cat;
+        this.random();
+    }
+
+    getFilteredList() {
+        const all = vocabService.getAll();
+        if (this.currentCategory === 'All') return all;
+        return all.filter(i => (i.category || 'Uncategorized') === this.currentCategory);
     }
 
     next(id = null) {
@@ -24,21 +43,30 @@ export class FinderApp {
             const idx = vocabService.findIndexById(id);
             if (idx !== -1) this.currentIndex = idx;
         } else {
-            const list = vocabService.getAll();
-            this.currentIndex = (this.currentIndex + 1) % list.length;
+            const list = this.getFilteredList();
+            const currentItem = vocabService.getAll()[this.currentIndex];
+            let listIdx = list.findIndex(i => i.id === currentItem.id);
+            listIdx = (listIdx + 1) % list.length;
+            this.currentIndex = vocabService.findIndexById(list[listIdx].id);
         }
         this.loadGame();
     }
 
     prev() {
         this.isProcessing = false;
-        const list = vocabService.getAll();
-        this.currentIndex = (this.currentIndex - 1 + list.length) % list.length;
+        const list = this.getFilteredList();
+        const currentItem = vocabService.getAll()[this.currentIndex];
+        let listIdx = list.findIndex(i => i.id === currentItem.id);
+        listIdx = (listIdx - 1 + list.length) % list.length;
+        this.currentIndex = vocabService.findIndexById(list[listIdx].id);
         this.loadGame();
     }
 
     random() {
-        this.currentIndex = vocabService.getRandomIndex();
+        const list = this.getFilteredList();
+        if (list.length === 0) return;
+        const randItem = list[Math.floor(Math.random() * list.length)];
+        this.currentIndex = vocabService.findIndexById(randItem.id);
         this.loadGame();
     }
 
@@ -93,6 +121,16 @@ export class FinderApp {
         const { target, choices } = this.currentData;
         const prompt = target.back.main || target.back.definition;
 
+        const pillsHtml = `
+            <div class="w-full overflow-x-auto whitespace-nowrap px-4 pb-2 mb-2 flex gap-2 no-scrollbar">
+                ${this.categories.map(cat => `
+                    <button class="category-pill px-4 py-1 rounded-full text-sm font-bold border ${this.currentCategory === cat ? 'bg-rose-500 text-white border-rose-500' : 'bg-white dark:bg-dark-card text-gray-500 border-gray-200 dark:border-gray-700'}" data-cat="${cat}">
+                        ${cat}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2">
@@ -118,6 +156,7 @@ export class FinderApp {
             </div>
 
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-lg mx-auto flex flex-col gap-4">
+                ${pillsHtml}
                 <div class="bg-white dark:bg-dark-card p-4 rounded-2xl shadow-sm text-center border-2 border-gray-100 dark:border-dark-border min-h-[4rem] flex items-center justify-center">
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white leading-tight">${prompt}</h2>
                 </div>
@@ -148,6 +187,11 @@ export class FinderApp {
         this.container.querySelector('#find-prev-btn').addEventListener('click', () => this.prev());
         this.container.querySelector('#find-next-btn').addEventListener('click', () => this.next());
         
+        // Category Handlers
+        this.container.querySelectorAll('.category-pill').forEach(btn => {
+            btn.addEventListener('click', (e) => this.setCategory(e.currentTarget.dataset.cat));
+        });
+
         const idInput = this.container.querySelector('#find-id-input');
         const goBtn = this.container.querySelector('#find-go-btn');
         goBtn.addEventListener('click', () => this.gotoId(idInput.value));
@@ -155,11 +199,11 @@ export class FinderApp {
 
         this.container.querySelectorAll('.find-choice').forEach(btn => btn.addEventListener('click', (e) => this.handleChoice(parseInt(e.currentTarget.dataset.id), e.currentTarget)));
         
-        // UPDATED: Using Individual fitText so short words stay big!
         requestAnimationFrame(() => {
             if(!this.container) return;
+            // Individual fit text
             this.container.querySelectorAll('.find-text').forEach(el => {
-                textService.fitText(el, 18, 55, false); // Increased max size
+                textService.fitText(el, 18, 55, false);
             });
         });
     }

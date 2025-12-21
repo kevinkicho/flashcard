@@ -11,12 +11,32 @@ export class ListeningApp {
         this.currentData = null;
         this.isProcessing = false;
         this.isPlaying = false;
+        this.categories = [];
+        this.currentCategory = 'All';
     }
 
     mount(elementId) {
         this.container = document.getElementById(elementId);
+        this.updateCategories();
         if (!this.currentData) this.random();
         else this.render();
+    }
+
+    updateCategories() {
+        const all = vocabService.getAll();
+        const cats = new Set(all.map(i => i.category || 'Uncategorized'));
+        this.categories = ['All', ...cats];
+    }
+
+    setCategory(cat) {
+        this.currentCategory = cat;
+        this.random();
+    }
+
+    getFilteredList() {
+        const all = vocabService.getAll();
+        if (this.currentCategory === 'All') return all;
+        return all.filter(i => (i.category || 'Uncategorized') === this.currentCategory);
     }
 
     bind(selector, event, handler) {
@@ -26,7 +46,10 @@ export class ListeningApp {
     }
 
     random() {
-        this.currentIndex = vocabService.getRandomIndex();
+        const list = this.getFilteredList();
+        if (list.length === 0) return;
+        const randItem = list[Math.floor(Math.random() * list.length)];
+        this.currentIndex = vocabService.findIndexById(randItem.id);
         this.loadGame();
     }
 
@@ -37,8 +60,11 @@ export class ListeningApp {
             const idx = vocabService.findIndexById(id);
             if (idx !== -1) this.currentIndex = idx;
         } else {
-            const list = vocabService.getAll();
-            this.currentIndex = (this.currentIndex + 1) % list.length;
+            const list = this.getFilteredList();
+            const currentItem = vocabService.getAll()[this.currentIndex];
+            let listIdx = list.findIndex(i => i.id === currentItem.id);
+            listIdx = (listIdx + 1) % list.length;
+            this.currentIndex = vocabService.findIndexById(list[listIdx].id);
         }
         this.loadGame();
     }
@@ -57,11 +83,15 @@ export class ListeningApp {
 
     loadGame() {
         this.isProcessing = false;
-        const list = vocabService.getAll();
+        const list = vocabService.getAll(); // Choices can come from full list for difficulty
         if (!list || !list.length) return;
+        
         const target = list[this.currentIndex];
+        
+        // Distractors
         const others = list.filter(i => i.id !== target.id).sort(() => 0.5 - Math.random()).slice(0, 3);
         const choices = [target, ...others].sort(() => 0.5 - Math.random());
+        
         this.currentData = { target, choices };
         this.render();
         if (settingsService.get().autoPlay) setTimeout(() => this.playAudio(), 500);
@@ -103,6 +133,16 @@ export class ListeningApp {
         const { target, choices } = this.currentData;
         const getLabel = (item) => item.back.definition || item.back.main || "???";
 
+        const pillsHtml = `
+            <div class="w-full overflow-x-auto whitespace-nowrap px-6 pb-2 mb-2 flex gap-2 no-scrollbar">
+                ${this.categories.map(cat => `
+                    <button class="category-pill px-4 py-1 rounded-full text-sm font-bold border ${this.currentCategory === cat ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-white dark:bg-dark-card text-gray-500 border-gray-200 dark:border-gray-700'}" data-cat="${cat}">
+                        ${cat}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2">
@@ -126,7 +166,8 @@ export class ListeningApp {
                 </div>
             </div>
 
-            <div class="w-full h-full pt-20 pb-10 px-6 max-w-lg mx-auto flex flex-col justify-center gap-8">
+            <div class="w-full h-full pt-20 pb-10 px-6 max-w-lg mx-auto flex flex-col justify-center">
+                ${pillsHtml}
                 <div class="flex-1 flex flex-col items-center justify-center min-h-[200px]">
                     <button id="listening-play-btn" class="w-32 h-32 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-2xl flex items-center justify-center transform transition-all active:scale-95 hover:shadow-indigo-500/50">
                         <svg id="listening-play-icon" xmlns="http://www.w3.org/2000/svg" class="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -135,7 +176,7 @@ export class ListeningApp {
                     </button>
                     <p class="mt-6 text-gray-400 font-bold uppercase tracking-widest text-xs animate-pulse">Tap to Listen</p>
                 </div>
-                <div class="grid grid-cols-1 gap-2 pb-8">
+                <div class="grid grid-cols-1 gap-2 pb-8 w-full">
                     ${choices.map(c => `
                         <button class="choice-btn bg-white dark:bg-dark-card border-2 border-gray-100 dark:border-dark-border p-1 rounded-2xl shadow-sm hover:shadow-md text-xl font-bold text-gray-700 dark:text-white transition-all active:scale-98 text-left h-20 flex items-center overflow-hidden" data-id="${c.id}">
                             <span class="choice-text w-full px-2 leading-relaxed text-center">${textService.smartWrap(getLabel(c))}</span>
@@ -148,9 +189,13 @@ export class ListeningApp {
         this.bind('#listening-play-btn', 'click', () => this.playAudio());
         this.bind('#listening-close-btn', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
         this.bind('#listening-random-btn', 'click', () => this.random());
+        
+        this.container.querySelectorAll('.category-pill').forEach(btn => {
+            btn.addEventListener('click', (e) => this.setCategory(e.currentTarget.dataset.cat));
+        });
+
         this.container.querySelectorAll('.choice-btn').forEach(btn => btn.addEventListener('click', (e) => this.handleChoice(parseInt(e.currentTarget.dataset.id), e.currentTarget)));
         
-        // UPDATED: Using Individual fitText
         requestAnimationFrame(() => {
             if(this.container) {
                 this.container.querySelectorAll('.choice-text').forEach(el => textService.fitText(el, 18, 45));

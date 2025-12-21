@@ -11,12 +11,32 @@ export class QuizApp {
         this.currentData = null; 
         this.isProcessing = false; 
         this.selectedAnswerId = null;
+        this.categories = [];
+        this.currentCategory = 'All';
     }
 
     mount(elementId) { 
         this.container = document.getElementById(elementId); 
+        this.updateCategories();
         if(!this.currentData) this.random(); 
         else this.render(); 
+    }
+
+    updateCategories() {
+        const all = vocabService.getAll();
+        const cats = new Set(all.map(i => i.category || 'Uncategorized'));
+        this.categories = ['All', ...cats];
+    }
+
+    setCategory(cat) {
+        this.currentCategory = cat;
+        this.random();
+    }
+
+    getFilteredList() {
+        const all = vocabService.getAll();
+        if (this.currentCategory === 'All') return all;
+        return all.filter(i => (i.category || 'Uncategorized') === this.currentCategory);
     }
 
     bind(selector, event, handler) {
@@ -26,12 +46,19 @@ export class QuizApp {
     }
 
     random() { 
-        const list = vocabService.getAll();
+        const list = this.getFilteredList();
         if(!list || list.length < 4) { this.renderError(); return; }
+        
         this.isProcessing = false; 
         this.selectedAnswerId = null;
         audioService.stop(); 
-        this.currentData = quizService.generateQuestion(null); 
+        
+        // Generate question from filtered list
+        // Note: quizService.generateQuestion usually picks random from ALL. 
+        // We need to ensure the target comes from our filtered list.
+        const target = list[Math.floor(Math.random() * list.length)];
+        this.currentData = quizService.generateQuestion(target.id);
+        
         this.render(); 
     }
     
@@ -39,26 +66,44 @@ export class QuizApp {
         this.isProcessing = false; 
         this.selectedAnswerId = null;
         audioService.stop();
-        if(id===null && this.currentData) {
-            const l=vocabService.getAll(); const i=vocabService.findIndexById(this.currentData.target.id);
-            id=l[(i+1)%l.length].id;
+        
+        const list = this.getFilteredList();
+        if(list.length === 0) return;
+
+        if(id === null && this.currentData) {
+            const currentItem = vocabService.getAll().find(v => v.id === this.currentData.target.id);
+            // Find current item's index within the FILTERED list
+            let listIdx = list.findIndex(i => i.id === currentItem.id);
+            // If not found in current filter (category changed), start at 0
+            if (listIdx === -1) listIdx = 0;
+            else listIdx = (listIdx + 1) % list.length;
+            
+            id = list[listIdx].id;
         }
-        this.currentData=quizService.generateQuestion(id);
+
+        this.currentData = quizService.generateQuestion(id);
         if(this.currentData && window.saveGameHistory) window.saveGameHistory('quiz', this.currentData.target.id);
         this.render();
     }
     
     prev() { 
         if(this.currentData) { 
-            const l=vocabService.getAll(); 
-            const i=vocabService.findIndexById(this.currentData.target.id); 
-            this.next(l[(i-1+l.length)%l.length].id); 
+            const list = this.getFilteredList();
+            if(list.length === 0) return;
+
+            const currentItem = vocabService.getAll().find(v => v.id === this.currentData.target.id);
+            let listIdx = list.findIndex(i => i.id === currentItem.id);
+            
+            if (listIdx === -1) listIdx = 0;
+            else listIdx = (listIdx - 1 + list.length) % list.length;
+
+            this.next(list[listIdx].id); 
         } 
     }
 
     renderError() { 
         if (this.container) {
-            this.container.innerHTML = `<div class="p-10 text-center text-white pt-24">Not enough vocabulary.</div>`;
+            this.container.innerHTML = `<div class="p-10 text-center text-gray-400 pt-24">Not enough vocabulary in this category (need 4+).</div>`;
             this.bind('#quiz-close-err', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
         }
     }
@@ -124,6 +169,16 @@ export class QuizApp {
         if(!this.currentData) { this.renderError(); return; }
         const { target, choices } = this.currentData;
         
+        const pillsHtml = `
+            <div class="w-full overflow-x-auto whitespace-nowrap px-4 pb-2 mb-2 flex gap-2 no-scrollbar">
+                ${this.categories.map(cat => `
+                    <button class="category-pill px-4 py-1 rounded-full text-sm font-bold border ${this.currentCategory === cat ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-dark-card text-gray-500 border-gray-200 dark:border-gray-700'}" data-cat="${cat}">
+                        ${cat}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2">
@@ -149,17 +204,20 @@ export class QuizApp {
                 </div>
             </div>
             
-            <div class="w-full h-full pt-20 pb-28 px-4 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div id="quiz-question-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-2 flex flex-col items-center justify-center overflow-hidden">
-                    <span class="quiz-question-text font-black text-6xl text-gray-800 dark:text-white text-center leading-tight w-full">${textService.smartWrap(target.front.main)}</span>
-                </div>
-                
-                <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-3">
-                    ${choices.map(c => `
-                        <button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex flex-col justify-center items-center p-1 overflow-hidden h-full" data-id="${c.id}">
-                            <div class="quiz-choice-text text-lg font-bold text-gray-700 dark:text-white text-center leading-tight w-full">${textService.smartWrap(c.back.definition)}</div>
-                        </button>
-                    `).join('')}
+            <div class="w-full h-full pt-20 pb-28 px-4 max-w-6xl mx-auto flex flex-col gap-2">
+                ${pillsHtml}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                    <div id="quiz-question-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-2 flex flex-col items-center justify-center overflow-hidden">
+                        <span class="quiz-question-text font-black text-6xl text-gray-800 dark:text-white text-center leading-tight w-full">${textService.smartWrap(target.front.main)}</span>
+                    </div>
+                    
+                    <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-3">
+                        ${choices.map(c => `
+                            <button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex flex-col justify-center items-center p-1 overflow-hidden h-full" data-id="${c.id}">
+                                <div class="quiz-choice-text text-lg font-bold text-gray-700 dark:text-white text-center leading-tight w-full">${textService.smartWrap(c.back.definition)}</div>
+                            </button>
+                        `).join('')}
+                    </div>
                 </div>
             </div>
             
@@ -180,6 +238,10 @@ export class QuizApp {
         this.bind('#quiz-random-btn', 'click', () => this.random());
         this.bind('#quiz-close-btn', 'click', () => window.dispatchEvent(new CustomEvent('router:home')));
         
+        this.container.querySelectorAll('.category-pill').forEach(btn => {
+            btn.addEventListener('click', (e) => this.setCategory(e.currentTarget.dataset.cat));
+        });
+
         this.bind('#quiz-question-box', 'click', () => {
              if(!this.isProcessing && !window.wasLongPress) {
                  audioService.stop();
@@ -196,8 +258,6 @@ export class QuizApp {
         
         requestAnimationFrame(() => {
             textService.fitText(this.container.querySelector('.quiz-question-text'), 24, 90);
-            
-            // CHANGED: Use individual fitText instead of fitGroup so short answers are big
             this.container.querySelectorAll('.quiz-choice-text').forEach(el => {
                 textService.fitText(el, 18, 55); 
             });

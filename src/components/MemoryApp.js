@@ -11,11 +11,31 @@ export class MemoryApp {
         this.flippedIndices = [];
         this.isProcessing = false;
         this.matchesFound = 0;
+        this.categories = [];
+        this.currentCategory = 'All';
     }
 
     mount(elementId) {
         this.container = document.getElementById(elementId);
+        this.updateCategories();
         this.startNewGame();
+    }
+
+    updateCategories() {
+        const all = vocabService.getAll();
+        const cats = new Set(all.map(i => i.category || 'Uncategorized'));
+        this.categories = ['All', ...cats];
+    }
+
+    setCategory(cat) {
+        this.currentCategory = cat;
+        this.startNewGame();
+    }
+
+    getFilteredList() {
+        const all = vocabService.getAll();
+        if (this.currentCategory === 'All') return all;
+        return all.filter(i => (i.category || 'Uncategorized') === this.currentCategory);
     }
 
     startNewGame() {
@@ -23,13 +43,13 @@ export class MemoryApp {
         this.flippedIndices = [];
         this.matchesFound = 0;
         
-        const allVocab = vocabService.getAll();
-        if (allVocab.length < 6) {
-            if(this.container) this.container.innerHTML = `<div class="p-10 text-center text-gray-500">Not enough vocabulary</div>`;
+        const list = this.getFilteredList();
+        if (list.length < 6) {
+            if(this.container) this.container.innerHTML = `<div class="p-10 text-center text-gray-500">Not enough vocabulary for this category</div>`;
             return; 
         }
 
-        const gameItems = [...allVocab].sort(() => 0.5 - Math.random()).slice(0, 6);
+        const gameItems = [...list].sort(() => 0.5 - Math.random()).slice(0, 6);
         
         let deck = [];
         gameItems.forEach(item => {
@@ -92,6 +112,16 @@ export class MemoryApp {
         
         const currentEditId = this.cards.length > 0 ? this.cards[0].pairId : 0;
 
+        const pillsHtml = `
+            <div class="w-full overflow-x-auto whitespace-nowrap px-4 pb-2 mb-2 flex gap-2 no-scrollbar">
+                ${this.categories.map(cat => `
+                    <button class="category-pill px-4 py-1 rounded-full text-sm font-bold border ${this.currentCategory === cat ? 'bg-purple-500 text-white border-purple-500' : 'bg-white dark:bg-dark-card text-gray-500 border-gray-200 dark:border-gray-700'}" data-cat="${cat}">
+                        ${cat}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2">
@@ -113,6 +143,7 @@ export class MemoryApp {
             </div>
 
             <div class="w-full h-full pt-20 pb-4 px-4 max-w-lg mx-auto flex flex-col">
+                ${pillsHtml}
                 <div class="grid grid-cols-3 grid-rows-4 gap-2 w-full h-full">
                     ${this.cards.map((c, i) => {
                         const isFlipped = this.flippedIndices.includes(i) || c.matched;
@@ -140,6 +171,10 @@ export class MemoryApp {
         this.container.querySelector('#mem-close-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
         this.container.querySelector('#mem-random-btn').addEventListener('click', () => this.startNewGame());
         
+        this.container.querySelectorAll('.category-pill').forEach(btn => {
+            btn.addEventListener('click', (e) => this.setCategory(e.currentTarget.dataset.cat));
+        });
+
         const editBtn = this.container.querySelector('.game-edit-btn');
         if(editBtn) {
             this.currentData = { item: { id: currentEditId } };
@@ -147,7 +182,6 @@ export class MemoryApp {
 
         this.container.querySelectorAll('.mem-card').forEach(btn => btn.addEventListener('click', (e) => this.handleCardClick(parseInt(e.currentTarget.dataset.index))));
         
-        // UPDATED: Use Individual fitText
         requestAnimationFrame(() => {
             if(!this.container) return;
             this.container.querySelectorAll('.card-text').forEach(el => textService.fitText(el, 16, 42));

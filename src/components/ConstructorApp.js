@@ -12,15 +12,38 @@ export class ConstructorApp {
         this.builtChars = [];
         this.isProcessing = false;
         this.charPool = []; 
+        this.categories = [];
+        this.currentCategory = 'All';
     }
 
     mount(elementId) {
         this.container = document.getElementById(elementId);
+        this.updateCategories();
         this.random();
     }
 
+    updateCategories() {
+        const all = vocabService.getAll();
+        const cats = new Set(all.map(i => i.category || 'Uncategorized'));
+        this.categories = ['All', ...cats];
+    }
+
+    setCategory(cat) {
+        this.currentCategory = cat;
+        this.random();
+    }
+
+    getFilteredList() {
+        const all = vocabService.getAll();
+        if (this.currentCategory === 'All') return all;
+        return all.filter(i => (i.category || 'Uncategorized') === this.currentCategory);
+    }
+
     random() {
-        this.currentIndex = vocabService.getRandomIndex();
+        const list = this.getFilteredList();
+        if (list.length === 0) return;
+        const randItem = list[Math.floor(Math.random() * list.length)];
+        this.currentIndex = vocabService.findIndexById(randItem.id);
         this.loadGame();
     }
 
@@ -30,15 +53,21 @@ export class ConstructorApp {
             const idx = vocabService.findIndexById(id);
             if (idx !== -1) this.currentIndex = idx;
         } else {
-            const list = vocabService.getAll();
-            this.currentIndex = (this.currentIndex + 1) % list.length;
+            const list = this.getFilteredList();
+            const currentItem = vocabService.getAll()[this.currentIndex];
+            let listIdx = list.findIndex(i => i.id === currentItem.id);
+            listIdx = (listIdx + 1) % list.length;
+            this.currentIndex = vocabService.findIndexById(list[listIdx].id);
         }
         this.loadGame();
     }
 
     prev() {
-        const list = vocabService.getAll();
-        this.currentIndex = (this.currentIndex - 1 + list.length) % list.length;
+        const list = this.getFilteredList();
+        const currentItem = vocabService.getAll()[this.currentIndex];
+        let listIdx = list.findIndex(i => i.id === currentItem.id);
+        listIdx = (listIdx - 1 + list.length) % list.length;
+        this.currentIndex = vocabService.findIndexById(list[listIdx].id);
         this.loadGame();
     }
 
@@ -114,6 +143,16 @@ export class ConstructorApp {
         const { item } = this.currentData;
         const originText = item.back.main || item.back.definition;
 
+        const pillsHtml = `
+            <div class="w-full overflow-x-auto whitespace-nowrap px-4 pb-2 mb-2 flex gap-2 no-scrollbar">
+                ${this.categories.map(cat => `
+                    <button class="category-pill px-4 py-1 rounded-full text-sm font-bold border ${this.currentCategory === cat ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white dark:bg-dark-card text-gray-500 border-gray-200 dark:border-gray-700'}" data-cat="${cat}">
+                        ${cat}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2">
@@ -139,6 +178,7 @@ export class ConstructorApp {
             </div>
 
             <div class="w-full h-full pt-20 pb-28 px-4 max-w-lg mx-auto flex flex-col gap-6">
+                ${pillsHtml}
                 <div id="const-question-box" class="bg-white dark:bg-dark-card p-4 rounded-3xl shadow-sm border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform hover:border-emerald-200 group flex flex-col h-32 justify-center items-center">
                     <span class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Build</span>
                     <h2 class="font-bold text-gray-800 dark:text-white w-full text-center flex-1 flex items-center justify-center whitespace-nowrap" data-fit="true">${textService.smartWrap(originText)}</h2>
@@ -180,6 +220,10 @@ export class ConstructorApp {
         this.container.querySelector('#const-next-btn').addEventListener('click', () => this.next());
         this.container.querySelector('#const-random-btn').addEventListener('click', () => this.random());
         
+        this.container.querySelectorAll('.category-pill').forEach(btn => {
+            btn.addEventListener('click', (e) => this.setCategory(e.currentTarget.dataset.cat));
+        });
+
         const idInput = this.container.querySelector('#const-id-input');
         const goBtn = this.container.querySelector('#const-go-btn');
         goBtn.addEventListener('click', () => this.gotoId(idInput.value));
@@ -191,7 +235,6 @@ export class ConstructorApp {
         requestAnimationFrame(() => {
             textService.fitText(this.container.querySelector('[data-fit="true"]'), 20, 60);
             if(this.container) {
-                // Use Individual FitText
                 this.container.querySelectorAll('.tile-text').forEach(el => textService.fitText(el, 28, 64));
             }
         });

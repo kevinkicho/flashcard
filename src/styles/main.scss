@@ -54,6 +54,7 @@ body {
   touch-action: manipulation; /* Improves touch response */
 }
 
+/* Custom Scrollbar Styling */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
@@ -63,6 +64,15 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background-color: rgba(156, 163, 175, 0.5);
   border-radius: 3px;
+}
+
+/* Utility to hide scrollbar but allow scrolling (for Pill Nav) */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
 }
 
 /* Utilities for Games */

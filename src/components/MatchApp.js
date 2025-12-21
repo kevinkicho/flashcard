@@ -11,11 +11,31 @@ export class MatchApp {
         this.selectedCard = null;
         this.isProcessing = false;
         this.matchesFound = 0;
+        this.categories = [];
+        this.currentCategory = 'All';
     }
 
     mount(elementId) {
         this.container = document.getElementById(elementId);
+        this.updateCategories();
         this.startNewGame();
+    }
+
+    updateCategories() {
+        const all = vocabService.getAll();
+        const cats = new Set(all.map(i => i.category || 'Uncategorized'));
+        this.categories = ['All', ...cats];
+    }
+
+    setCategory(cat) {
+        this.currentCategory = cat;
+        this.startNewGame();
+    }
+
+    getFilteredList() {
+        const all = vocabService.getAll();
+        if (this.currentCategory === 'All') return all;
+        return all.filter(i => (i.category || 'Uncategorized') === this.currentCategory);
     }
 
     startNewGame() {
@@ -23,10 +43,10 @@ export class MatchApp {
         this.selectedCard = null;
         this.matchesFound = 0;
         
-        const allVocab = vocabService.getAll();
-        if (allVocab.length < 6) return; 
+        const list = this.getFilteredList();
+        if (list.length < 6) return; // Or handle error
 
-        const gameItems = [...allVocab].sort(() => 0.5 - Math.random()).slice(0, 6);
+        const gameItems = [...list].sort(() => 0.5 - Math.random()).slice(0, 6);
         
         let deck = [];
         gameItems.forEach(item => {
@@ -110,6 +130,17 @@ export class MatchApp {
 
     render() {
         if (!this.container) return;
+
+        const pillsHtml = `
+            <div class="w-full overflow-x-auto whitespace-nowrap px-4 pb-2 mb-2 flex gap-2 no-scrollbar">
+                ${this.categories.map(cat => `
+                    <button class="category-pill px-4 py-1 rounded-full text-sm font-bold border ${this.currentCategory === cat ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-white dark:bg-dark-card text-gray-500 border-gray-200 dark:border-gray-700'}" data-cat="${cat}">
+                        ${cat}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2">
@@ -126,8 +157,9 @@ export class MatchApp {
                     <button id="match-close-btn" class="header-icon-btn bg-red-50 text-red-500 rounded-full shadow-sm"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
                 </div>
             </div>
-            <div class="w-full h-full pt-20 pb-10 px-4 max-w-lg mx-auto">
-                <div class="grid grid-cols-3 gap-2 h-full content-center">
+            <div class="w-full h-full pt-20 pb-10 px-4 max-w-lg mx-auto flex flex-col">
+                ${pillsHtml}
+                <div class="grid grid-cols-3 gap-2 flex-1 content-center">
                     ${this.cards.map((c, i) => `
                         <button class="match-card relative w-full aspect-square bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-dark-border rounded-xl shadow-sm flex items-center justify-center p-1 transition-all duration-200 overflow-hidden ${c.matched ? 'opacity-0 pointer-events-none' : 'hover:scale-105 active:scale-95'}" data-index="${i}">
                             <span class="card-text font-bold text-gray-700 dark:text-white text-center leading-tight w-full" style="white-space:normal">${textService.smartWrap(c.text)}</span>
@@ -139,11 +171,17 @@ export class MatchApp {
         `;
         this.container.querySelector('#match-close-btn').addEventListener('click', () => window.dispatchEvent(new CustomEvent('router:home')));
         this.container.querySelector('#match-random-btn').addEventListener('click', () => this.startNewGame());
+        
+        // Category Handlers
+        this.container.querySelectorAll('.category-pill').forEach(btn => {
+            btn.addEventListener('click', (e) => this.setCategory(e.currentTarget.dataset.cat));
+        });
+
         this.container.querySelectorAll('.match-card').forEach(btn => btn.addEventListener('click', (e) => this.handleCardClick(parseInt(e.currentTarget.dataset.index), e.currentTarget)));
         
-        // UPDATED: Use Individual fitText
         requestAnimationFrame(() => {
             if(!this.container) return;
+            // Individual fit text
             this.container.querySelectorAll('.card-text').forEach(el => textService.fitText(el, 14, 60, false));
         });
     }

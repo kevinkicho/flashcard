@@ -38,6 +38,36 @@ window.saveGameHistory = (game, id) => {
 };
 
 let currentActiveApp = null;
+let currentUser = null;
+
+const LANGUAGES = [
+    { code: 'en', name: 'English' },
+    { code: 'es', name: 'Spanish' },
+    { code: 'fr', name: 'French' },
+    { code: 'de', name: 'German' },
+    { code: 'ja', name: 'Japanese' },
+    { code: 'ko', name: 'Korean' },
+    { code: 'zh', name: 'Chinese' },
+    { code: 'it', name: 'Italian' },
+    { code: 'pt', name: 'Portuguese' },
+    { code: 'ru', name: 'Russian' }
+];
+
+function populateLanguageDropdowns() {
+    const targets = ['target-select', 'origin-select'];
+    targets.forEach(id => {
+        const select = document.getElementById(id);
+        if (select && select.options.length < 5) {
+            select.innerHTML = '';
+            LANGUAGES.forEach(lang => {
+                const opt = document.createElement('option');
+                opt.value = lang.code;
+                opt.textContent = lang.name;
+                select.appendChild(opt);
+            });
+        }
+    });
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     try { scoreService.init(); } catch(e){ console.error("Score Init Error", e); }
@@ -60,7 +90,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const iconOut = document.getElementById('icon-user-out'); 
     const iconIn = document.getElementById('icon-user-in'); 
-    let currentUser = null;
 
     onAuthStateChanged(auth, async (user) => {
         currentUser = user;
@@ -83,10 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if(startBtn) startBtn.innerText = "Loading Data...";
 
         try {
+            populateLanguageDropdowns();
             const saved = settingsService.get(); 
             if(saved.darkMode) document.documentElement.classList.add('dark');
             
-            // UPDATED: init() now waits for data to arrive
             await vocabService.init(); 
             dictionaryService.fetchData();
 
@@ -128,6 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- UPDATED VOCAB EDIT FIELDS ---
     window.renderVocabEditFields = (data) => {
         const container = document.getElementById('edit-vocab-fields');
         const idLabel = document.getElementById('edit-vocab-id');
@@ -139,7 +169,20 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '';
         
         const isAdmin = currentUser && currentUser.email === 'kevinkicho@gmail.com';
-        const fields = ['ja', 'ja_furi', 'en', 'ja_ex', 'en_ex', 'zh', 'ko'];
+        
+        // Full list of fields based on user request
+        const fields = [
+            'ja', 'ja_furi', 'ja_roma', 'ja_ex',
+            'en', 'en_ex',
+            'zh', 'zh_pin', 'zh_ex',
+            'ko', 'ko_roma', 'ko_ex',
+            'de', 'de_ex',
+            'es', 'es_ex',
+            'fr', 'fr_ex',
+            'it', 'it_ex',
+            'pt', 'pt_ex',
+            'ru', 'ru_tr', 'ru_ex'
+        ];
         
         fields.forEach(key => {
             const val = data[key] || '';
@@ -153,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- UPDATED DICTIONARY EDIT LOGIC ---
     window.populateDictionaryEdit = (text) => {
          const list = document.getElementById('edit-dict-list');
          if(!list) return;
@@ -161,9 +205,12 @@ document.addEventListener('DOMContentLoaded', () => {
              return;
          }
          
-         const results = dictionaryService.lookupText(text);
+         // Remove duplicates before lookup to be efficient
+         const uniqueChars = Array.from(new Set(text.split(''))).join('');
+         const results = dictionaryService.lookupText(uniqueChars);
+         
          if (results.length === 0) {
-             list.innerHTML = `<div class="text-gray-400 text-sm italic p-2">No dictionary entries found for characters in this card.</div>`;
+             list.innerHTML = `<div class="text-gray-400 text-sm italic p-2">No dictionary entries found for characters in this game.</div>`;
              return;
          }
 
@@ -171,30 +218,41 @@ document.addEventListener('DOMContentLoaded', () => {
          let html = '';
 
          results.forEach(entry => {
+             // Mapping entry.k based on user JSON
+             const koVal = entry.k || ''; 
+
              if (isAdmin) {
                  html += `
                     <div class="p-3 border-b border-gray-100 dark:border-gray-700 last:border-0 dict-edit-row" data-fb-key="${entry.firebaseKey}">
-                        <div class="flex gap-2 mb-2">
-                            <input class="dict-input w-16 bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-xl font-bold text-indigo-600" data-field="s" value="${entry.s}" placeholder="Char">
+                        <div class="flex gap-2 mb-2 items-center">
+                            <input class="dict-input w-16 bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-xl font-bold text-indigo-600 text-center" data-field="s" value="${entry.s}" placeholder="Char">
+                            <button class="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center hover:bg-indigo-200 active:scale-95 transition-all flex-shrink-0" onclick="window.playDictAudio('${entry.s}')">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                            </button>
                             <input class="dict-input w-full bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-sm" data-field="p" value="${entry.p}" placeholder="Pinyin">
                         </div>
                         <div class="flex gap-2 mb-2">
                             <input class="dict-input w-full bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-sm" data-field="t" value="${entry.t}" placeholder="Traditional">
-                            <input class="dict-input w-full bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-sm" data-field="ko" value="${entry.ko}" placeholder="Korean">
+                            <input class="dict-input w-full bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-sm" data-field="k" value="${koVal}" placeholder="Korean / Definition">
                         </div>
                         <textarea class="dict-input w-full bg-gray-100 dark:bg-gray-800 border-none rounded p-2 text-sm h-16" data-field="e" placeholder="English">${entry.e}</textarea>
                     </div>`;
              } else {
                  html += `
-                    <div class="flex items-start gap-4 p-3 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer active:scale-95 transition-transform" onclick="window.playDictAudio('${entry.s}')">
-                        <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400 font-serif">${entry.s}</div>
+                    <div class="flex items-start gap-4 p-3 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-white/5 transition-transform">
+                        <div class="flex flex-col items-center gap-1">
+                            <div class="text-4xl font-black text-indigo-600 dark:text-indigo-400 font-serif">${entry.s}</div>
+                            <button class="bg-indigo-50 text-indigo-600 p-2 rounded-full hover:bg-indigo-100 active:scale-95 transition-all" onclick="window.playDictAudio('${entry.s}')">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                            </button>
+                        </div>
                         <div class="flex-1">
                             <div class="flex gap-2 items-baseline mb-1">
                                 <span class="text-lg font-bold text-gray-800 dark:text-white">${entry.p}</span>
                                 ${entry.t && entry.t !== entry.s ? `<span class="text-xs text-gray-400">(${entry.t})</span>` : ''}
                             </div>
                             <div class="text-sm text-gray-600 dark:text-gray-300 leading-snug">${entry.e}</div>
-                            ${entry.ko ? `<div class="text-xs text-indigo-500 mt-1 font-medium">${entry.ko}</div>` : ''}
+                            ${koVal ? `<div class="text-xs text-indigo-500 mt-1 font-medium">${koVal}</div>` : ''}
                         </div>
                     </div>`;
              }
@@ -206,6 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
         audioService.speak(text, 'zh-CN');
     };
 
+    // --- SAVE LOGIC UPDATED FOR 'k' field ---
     const saveDictBtn = document.getElementById('btn-save-dict');
     if(saveDictBtn) {
         saveDictBtn.addEventListener('click', async () => {
@@ -219,8 +278,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const key = row.dataset.fbKey;
                     if(key) {
                         const getVal = (f) => row.querySelector(`[data-field="${f}"]`).value;
+                        // Use 'k' instead of 'ko'
                         updates.push(dictionaryService.saveEntry(key, {
-                            s: getVal('s'), t: getVal('t'), p: getVal('p'), e: getVal('e'), ko: getVal('ko')
+                            s: getVal('s'), t: getVal('t'), p: getVal('p'), e: getVal('e'), k: getVal('k')
                         }));
                     }
                 });
@@ -294,6 +354,8 @@ document.addEventListener('DOMContentLoaded', () => {
         resizeTimer = setTimeout(() => { if (currentActiveApp && currentActiveApp.render) currentActiveApp.render(); else document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)); }, 100);
     });
 
+    // ... (Achievements & Score logic remains the same) ...
+    // Note: Kept short for brevity, assume the standard achievement/score code is here
     const achPopup = document.getElementById('achievement-popup');
     window.addEventListener('achievement:unlocked', (e) => {
         const ach = e.detail; const t = document.getElementById('ach-popup-title'); const d = document.getElementById('ach-popup-desc'); const p = document.getElementById('ach-popup-pts');
@@ -301,39 +363,25 @@ document.addEventListener('DOMContentLoaded', () => {
         t.textContent = ach.title; d.textContent = ach.desc; p.textContent = ach.points;
         achPopup.classList.remove('hidden'); setTimeout(() => achPopup.classList.add('hidden'), 4000);
     });
-
     const achBtn = document.getElementById('ach-btn');
     if(achBtn) achBtn.addEventListener('click', async () => {
         const achModal = document.getElementById('ach-list-modal');
         const achContent = document.getElementById('ach-list-content');
         if(!achModal || !achContent) return;
-        
-        achModal.classList.remove('hidden'); 
-        setTimeout(()=>achModal.classList.remove('opacity-0'),10);
+        achModal.classList.remove('hidden'); setTimeout(()=>achModal.classList.remove('opacity-0'),10);
         achContent.innerHTML = '<div class="text-center p-4 text-white">Loading...</div>';
-        
         let unlockedMap = {};
         if (currentUser) {
             try { unlockedMap = await achievementService.getUserAchievements(currentUser.uid) || {}; } catch(e){ console.error(e); }
         }
-        
-        const totalPoints = Object.values(unlockedMap).reduce((sum, item) => {
-             const achDef = ACHIEVEMENTS.find(a => a.title === item.title); 
-             return sum + (achDef ? achDef.points : 0);
-        }, 0);
-
+        const totalPoints = Object.values(unlockedMap).reduce((sum, item) => { const achDef = ACHIEVEMENTS.find(a => a.title === item.title); return sum + (achDef ? achDef.points : 0);}, 0);
         let html = `
         <div class="mb-8 flex flex-col items-center">
             <div class="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Total Score</div>
             <div class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-tr from-indigo-500 to-purple-500 dark:from-white dark:to-gray-400 font-mono tracking-tighter">${totalPoints}</div>
             <div class="h-1 w-12 bg-indigo-500 rounded-full mt-2 opacity-50"></div>
         </div>`;
-
-        const sorted = [...ACHIEVEMENTS].sort((a,b) => { 
-            const aU = !!unlockedMap[a.id], bU = !!unlockedMap[b.id]; 
-            if (aU && !bU) return -1; if (!aU && bU) return 1; return b.points - a.points; 
-        });
-        
+        const sorted = [...ACHIEVEMENTS].sort((a,b) => { const aU = !!unlockedMap[a.id], bU = !!unlockedMap[b.id]; if (aU && !bU) return -1; if (!aU && bU) return 1; return b.points - a.points; });
         sorted.forEach(ach => {
             const unlocked = !!unlockedMap[ach.id];
             const bg = unlocked ? 'bg-white/10 border-indigo-500/30' : 'bg-black/20 border-white/5 opacity-50 grayscale';
@@ -343,7 +391,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         achContent.innerHTML = html;
     });
-
     const achClose = document.getElementById('ach-list-close');
     if (achClose) achClose.addEventListener('click', ()=>{ const m = document.getElementById('ach-list-modal'); if(m) { m.classList.add('opacity-0'); setTimeout(()=>m.classList.add('hidden'),200); }});
 
@@ -352,15 +399,29 @@ document.addEventListener('DOMContentLoaded', () => {
     let chartDataCache=null, showingWeeklyScore=false;
     scoreService.subscribe((s) => { document.querySelectorAll('.global-score-display').forEach(el=>el.textContent=s); });
     
+    // --- MAIN EDIT MODAL CLICK HANDLER & TEXT COLLECTOR ---
     document.addEventListener('click', (e) => {
         if(e.target.closest('#score-pill')) showScoreChart();
         if(e.target.closest('#home-settings-btn')) openSettings();
         if(e.target.closest('#modal-done-btn')) closeSettings();
+        
+        // Handle Edit Button Click
         if (e.target.closest('.game-edit-btn')) {
             let app = currentActiveApp; 
             if (app) {
-                let item = app.currentData && (app.currentData.target || app.currentData.item) ? (app.currentData.target || app.currentData.item) : (app.currentData || (app.currentIndex!==undefined && vocabService.getAll().length > app.currentIndex ? vocabService.getAll()[app.currentIndex] : null));
-                if (item && item.id) {
+                // 1. Resolve Current Vocab Item for Vocab Tab
+                let item = null;
+                if (app.currentData) {
+                    item = app.currentData.target || app.currentData.item || (app.currentData.id ? app.currentData : null);
+                }
+                
+                // Fallback for array-based iteration if not structured above
+                if (!item && app.currentIndex !== undefined) {
+                    const all = vocabService.getAll();
+                    if(all.length > app.currentIndex) item = all[app.currentIndex];
+                }
+
+                if (item && item.id !== undefined) {
                     currentEditId = item.id;
                     const fullData = vocabService.getAll().find(v => v.id == item.id);
                     if(fullData) {
@@ -368,18 +429,59 @@ document.addEventListener('DOMContentLoaded', () => {
                         if(em) { em.classList.remove('hidden'); setTimeout(()=>em.classList.remove('opacity-0'), 10); }
                         switchEditTab('vocab');
                         window.renderVocabEditFields(fullData); 
-                        window.populateDictionaryEdit(
-                            (fullData.ja||'') + (fullData.ja_ex||'') + 
-                            (fullData.zh||'') + (fullData.zh_ex||'') +
-                            (fullData.ko||'') + (fullData.ko_ex||'')
-                        );
+                        
+                        // 2. COLLECT ALL TEXT FOR DICTIONARY TAB
+                        let combinedText = "";
+
+                        const getText = (v) => {
+                            if(!v) return "";
+                            // Extract relevant fields that may contain Chinese
+                            return (v.zh||"") + (v.zh_ex||"") + (v.front?.main||"") + (v.back?.main||"") + (v.back?.definition||"");
+                        };
+
+                        if (app.currentData) {
+                            // Quiz, Listening, Reverse, Finder: Target + Choices
+                            if (app.currentData.target) {
+                                combinedText += getText(app.currentData.target);
+                            }
+                            if (app.currentData.choices && Array.isArray(app.currentData.choices)) {
+                                app.currentData.choices.forEach(c => combinedText += getText(c));
+                            }
+                            
+                            // TrueFalse: Item + Distractor text
+                            if (app.currentData.item) combinedText += getText(app.currentData.item);
+                            if (app.currentData.displayMeaning) combinedText += app.currentData.displayMeaning;
+
+                            // Sentences / Blanks: Sentence string
+                            if (app.currentData.sentence) combinedText += app.currentData.sentence;
+
+                            // Constructor: Target Word
+                            if (app.currentData.targetWord) combinedText += app.currentData.targetWord;
+                            
+                            // Flashcard: Current Data directly
+                            if (!app.currentData.target && !app.currentData.item && app.currentData.id) {
+                                combinedText += getText(app.currentData);
+                            }
+                        }
+                        
+                        // Match / Memory: All cards on board
+                        if (app.cards && Array.isArray(app.cards)) {
+                            app.cards.forEach(c => combinedText += (c.text || ""));
+                        }
+
+                        // Writing App (usually just currentData vocab)
+                        if (app.constructor.name === 'WritingApp' && app.currentData) {
+                             combinedText += getText(app.currentData);
+                        }
+
+                        window.populateDictionaryEdit(combinedText);
                         updateEditPermissions();
                     }
                 }
             }
         }
     });
-
+    // ... (Score chart logic kept same as previous) ...
     if(scoreClose) scoreClose.addEventListener('click', ()=>{ if(scoreModal) { scoreModal.classList.add('opacity-0'); setTimeout(()=>scoreModal.classList.add('hidden'),200); }});
     const scoreTotalToggle = document.getElementById('score-total-toggle');
     if(scoreTotalToggle) scoreTotalToggle.addEventListener('click', ()=>{ showingWeeklyScore=!showingWeeklyScore; updateScoreDisplay(); });
@@ -399,6 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function showScoreChart() {
+        // ... (standard chart logic) ...
         if(!scoreModal) return;
         scoreModal.classList.remove('hidden'); setTimeout(()=>scoreModal.classList.remove('opacity-0'), 10);
         const container = document.getElementById('score-chart-container');
@@ -422,14 +525,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const fc = getVal(d, 'flashcard'), qz = getVal(d, 'quiz'), st = getVal(d, 'sentences'), bl = getVal(d, 'blanks');
                 const li = getVal(d, 'listening'), ma = getVal(d, 'match'), me = getVal(d, 'memory'), fi = getVal(d, 'finder');
                 const co = getVal(d, 'constructor'), wr = getVal(d, 'writing'), tf = getVal(d, 'truefalse'), rv = getVal(d, 'reverse');
-                
-                return { 
-                    dateStr: date, label: dayLabels[i], 
-                    fc, qz, st, bl, li, ma, me, fi, co, wr, tf, rv,
-                    total: fc+qz+st+bl+li+ma+me+fi+co+wr+tf+rv
-                };
+                return { dateStr: date, label: dayLabels[i], fc, qz, st, bl, li, ma, me, fi, co, wr, tf, rv, total: fc+qz+st+bl+li+ma+me+fi+co+wr+tf+rv };
             });
-            
             const maxScore = Math.max(...chartDataCache.map(s => s.total), 50);
             let html = '';
             chartDataCache.forEach((s, idx) => {
@@ -473,12 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if(s.bl) details += `<span class="text-teal-500">BL:${s.bl}</span> `;
                             if(s.li) details += `<span class="text-blue-500">LI:${s.li}</span> `;
                             if(s.ma) details += `<span class="text-yellow-500">MA:${s.ma}</span> `;
-                            
-                            tooltipArea.innerHTML = `
-                                <div class="flex flex-col items-center">
-                                    <span class="text-gray-500 dark:text-gray-300 uppercase font-bold text-xs mb-1">${s.label} - Total: ${s.total}</span>
-                                    <div class="flex gap-2 text-[10px] font-bold flex-wrap justify-center">${details || 'No activity'}</div>
-                                </div>`; 
+                            tooltipArea.innerHTML = `<div class="flex flex-col items-center"><span class="text-gray-500 dark:text-gray-300 uppercase font-bold text-xs mb-1">${s.label} - Total: ${s.total}</span><div class="flex gap-2 text-[10px] font-bold flex-wrap justify-center">${details || 'No activity'}</div></div>`; 
                         }
                     }); 
                 });
@@ -486,6 +578,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { console.error("Chart Error", e); if(container) container.innerHTML = `<div class="text-red-500 p-4 text-xs">Error</div>`; }
     }
 
+    // ... (Settings Modal Logic remains the same) ...
     const settingsModal = document.getElementById('settings-modal');
     const openSettings = () => { if(settingsModal){ loadSettingsToUI(); settingsModal.classList.remove('hidden'); setTimeout(()=>settingsModal.classList.remove('opacity-0'), 10); }};
     const closeSettings = () => { if(settingsModal){ settingsModal.classList.add('opacity-0'); setTimeout(()=>settingsModal.classList.add('hidden'), 200); }};
@@ -513,5 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabVocabBtn = document.getElementById('tab-vocab-btn'); if(tabVocabBtn) tabVocabBtn.addEventListener('click', () => switchEditTab('vocab'));
     const tabDictBtn = document.getElementById('tab-dict-btn'); if(tabDictBtn) tabDictBtn.addEventListener('click', () => switchEditTab('dict'));
     const ec = document.getElementById('edit-close-btn'); if(ec) ec.addEventListener('click', () => { const em=document.getElementById('edit-modal'); if(em){ em.classList.add('opacity-0'); setTimeout(()=>em.classList.add('hidden'), 200); }});
-    const fsBtn = document.getElementById('fullscreen-btn'); if(fsBtn) fsBtn.addEventListener('click', () => (!document.fullscreenElement) ? document.documentElement.requestFullscreen() : document.exitFullscreen());
+    
+    const fsBtn = document.getElementById('fullscreen-btn'); 
+    if(fsBtn) fsBtn.addEventListener('click', () => (!document.fullscreenElement) ? document.documentElement.requestFullscreen() : document.exitFullscreen());
 });

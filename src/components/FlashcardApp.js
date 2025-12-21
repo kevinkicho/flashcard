@@ -10,15 +10,33 @@ export class FlashcardApp {
         this.currentIndex = 0;
         this.isFlipped = false;
         this.history = [];
+        this.categories = [];
+        this.currentCategory = 'All';
     }
 
     mount(elementId) {
         this.container = document.getElementById(elementId);
-        const list = vocabService.getAll();
-        if (list && list.length > 0) {
-           this.currentIndex = vocabService.getRandomIndex();
-        }
-        this.render();
+        this.updateCategories();
+        this.random();
+    }
+
+    updateCategories() {
+        const all = vocabService.getAll();
+        const cats = new Set(all.map(i => i.category || 'Uncategorized'));
+        this.categories = ['All', ...cats];
+    }
+
+    setCategory(cat) {
+        this.currentCategory = cat;
+        // Reset history when changing categories so prev button doesn't jump to old category
+        this.history = []; 
+        this.random();
+    }
+
+    getFilteredList() {
+        const all = vocabService.getAll();
+        if (this.currentCategory === 'All') return all;
+        return all.filter(i => (i.category || 'Uncategorized') === this.currentCategory);
     }
 
     bind(selector, event, handler) {
@@ -29,6 +47,21 @@ export class FlashcardApp {
 
     refresh() {
         this.render();
+    }
+
+    random() {
+        const list = this.getFilteredList();
+        if (list && list.length > 0) {
+            // Pick a random item from the FILTERED list
+            const randItem = list[Math.floor(Math.random() * list.length)];
+            // Map it back to the global index (or just pass object to loadGame, but loadGame uses global index currently)
+            // Let's refactor loadGame to accept an ID or Object, but sticking to existing pattern:
+            const globalIndex = vocabService.findIndexById(randItem.id);
+            this.loadGame(globalIndex);
+        } else {
+            this.currentData = null;
+            this.render();
+        }
     }
 
     loadGame(index) {
@@ -54,7 +87,20 @@ export class FlashcardApp {
              if(idx !== -1) this.loadGame(idx);
         } else {
              if (this.currentData) this.history.push(this.currentIndex);
-             this.loadGame(this.currentIndex + 1);
+             
+             // Navigation within Filtered List
+             const list = this.getFilteredList();
+             if (list.length === 0) return;
+             
+             const currentItem = vocabService.getAll()[this.currentIndex];
+             let listIdx = list.findIndex(i => i.id === currentItem.id);
+             
+             // Move to next in filtered list
+             if (listIdx === -1) listIdx = 0;
+             else listIdx = (listIdx + 1) % list.length;
+             
+             const nextGlobalIndex = vocabService.findIndexById(list[listIdx].id);
+             this.loadGame(nextGlobalIndex);
         }
     }
 
@@ -62,7 +108,18 @@ export class FlashcardApp {
         if (this.history.length > 0) {
             this.loadGame(this.history.pop());
         } else {
-            this.loadGame(this.currentIndex - 1);
+             // Navigation within Filtered List
+             const list = this.getFilteredList();
+             if (list.length === 0) return;
+             
+             const currentItem = vocabService.getAll()[this.currentIndex];
+             let listIdx = list.findIndex(i => i.id === currentItem.id);
+             
+             if (listIdx === -1) listIdx = 0;
+             else listIdx = (listIdx - 1 + list.length) % list.length;
+             
+             const prevGlobalIndex = vocabService.findIndexById(list[listIdx].id);
+             this.loadGame(prevGlobalIndex);
         }
     }
     
@@ -75,7 +132,6 @@ export class FlashcardApp {
         this.isFlipped = !this.isFlipped;
         this.render();
         
-        // FIXED: Play audio on Front flip too
         if (!this.isFlipped) {
              this.playAudio();
         } 
@@ -99,20 +155,28 @@ export class FlashcardApp {
         if (!this.container) return;
         
         if (!this.currentData) {
-             const list = vocabService.getAll();
+             const list = this.getFilteredList();
              if(list.length > 0) {
-                 this.loadGame(this.currentIndex);
+                 this.random();
                  return; 
              }
-            this.container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No vocabulary data available.</div>';
+            this.container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500 pt-20">No vocabulary data available in this category.</div>';
             return;
         }
 
         const { front, back, id } = this.currentData;
         const s = settingsService.get();
-        const fontClass = s.targetLang === 'ja' ? 'font-jp' : '';
 
-        // FIXED: Added rotate-y-180 to the Back Face to prevent mirrored text
+        const pillsHtml = `
+            <div class="w-full overflow-x-auto whitespace-nowrap px-6 pb-2 mb-2 flex gap-2 no-scrollbar">
+                ${this.categories.map(cat => `
+                    <button class="category-pill px-4 py-1 rounded-full text-sm font-bold border ${this.currentCategory === cat ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-dark-card text-gray-500 border-gray-200 dark:border-gray-700'}" data-cat="${cat}">
+                        ${cat}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2">
@@ -126,6 +190,7 @@ export class FlashcardApp {
             </div>
 
             <div class="w-full h-full pt-20 pb-28 px-6 flex flex-col items-center justify-center">
+                ${pillsHtml}
                 <div class="w-full max-w-md aspect-[3/4] relative perspective group cursor-pointer" id="flashcard-container">
                     <div id="flashcard-card" class="card-inner w-full h-full duration-500 transform-style-3d relative ${this.isFlipped ? 'rotate-y-180' : ''}">
                         
@@ -181,6 +246,10 @@ export class FlashcardApp {
         this.bind('#fc-prev-btn', 'click', () => this.prev());
         this.bind('#fc-next-btn', 'click', () => this.next());
         
+        this.container.querySelectorAll('.category-pill').forEach(btn => {
+            btn.addEventListener('click', (e) => this.setCategory(e.currentTarget.dataset.cat));
+        });
+
         this.container.querySelectorAll('.audio-btn').forEach(btn => 
             btn.addEventListener('click', (e) => { e.stopPropagation(); this.playAudio(); })
         );

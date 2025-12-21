@@ -123,9 +123,6 @@ export class SentencesApp {
         const { item } = this.currentData;
         const originText = item.back.sentenceOrigin || item.back.main || item.back.definition;
 
-        // CLEVER SOLUTION: 
-        // 1. Main Container has overflow-hidden (NO SCROLL BARS EVER)
-        // 2. Answer Pool hides used words (display:none), so it shrinks as Dropbox grows.
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
                 <div class="flex items-center gap-2">
@@ -150,30 +147,25 @@ export class SentencesApp {
                 </div>
             </div>
 
-            <div class="w-full h-full pt-20 pb-28 px-4 max-w-lg mx-auto flex flex-col gap-4 overflow-hidden">
-                
-                <div id="sent-question-box" class="flex-none bg-white dark:bg-dark-card p-4 rounded-3xl shadow-sm text-center border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform hover:border-pink-200 group">
-                    <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Arrange</span>
+            <div class="w-full h-full pt-20 pb-28 px-4 max-w-lg mx-auto flex flex-col gap-4">
+                <div id="sent-question-box" class="bg-white dark:bg-dark-card p-4 rounded-3xl shadow-sm text-center border-2 border-gray-100 dark:border-dark-border cursor-pointer active:scale-95 transition-transform hover:border-pink-200 group">
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white mt-1" data-fit="true">${textService.smartWrap(originText)}</h2>
                 </div>
 
-                <div id="sent-slots" class="flex-none flex flex-wrap justify-center content-start gap-2 min-h-[5rem] p-4 bg-gray-100 dark:bg-dark-bg/50 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 transition-all">
+                <div id="sent-slots" class="flex flex-wrap justify-center content-start gap-2 min-h-[5rem] p-4 bg-gray-100 dark:bg-dark-bg/50 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 transition-all overflow-y-auto custom-scrollbar">
                     ${this.builtIndices.map((poolIdx, i) => `
-                        <button class="bg-pink-500 text-white rounded-lg px-3 py-2 font-bold shadow-md active:scale-95 whitespace-nowrap text-lg" data-pos="${i}">${this.wordPool[poolIdx].word}</button>
+                        <button class="bg-pink-500 text-white rounded-lg px-3 py-2 font-bold shadow-md active:scale-95 whitespace-nowrap text-xl" data-pos="${i}">${this.wordPool[poolIdx].word}</button>
                     `).join('')}
                     ${this.builtIndices.length === 0 ? '<span class="text-gray-400 text-sm self-center font-medium animate-pulse w-full text-center">Tap words below</span>' : ''}
                 </div>
 
-                <div class="flex-1 min-h-0 overflow-hidden relative">
-                    <div class="flex flex-wrap justify-center content-start gap-2 w-full">
-                        ${this.wordPool.map((w, i) => {
-                            // KEY FIX: If used, do not render. This reclaims space for the layout.
-                            if (w.used) return ''; 
-                            return `
-                            <button class="flex-grow bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-gray-700 rounded-xl p-2 shadow-sm hover:border-pink-400 active:scale-95 transition-all flex items-center justify-center" data-index="${i}">
-                                <div class="w-full font-bold text-gray-700 dark:text-white text-center leading-tight" data-fit="true">${textService.smartWrap(w.word)}</div>
+                <div class="flex-1 overflow-y-auto custom-scrollbar">
+                    <div class="flex flex-wrap justify-center gap-2 pb-4">
+                        ${this.wordPool.map((w, i) => `
+                            <button class="flex-grow bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 min-w-[4rem] min-h-[5rem] font-bold text-3xl text-gray-700 dark:text-white shadow-sm hover:border-pink-400 active:scale-95 transition-all whitespace-nowrap flex items-center justify-center ${w.used ? 'opacity-20 pointer-events-none' : ''}" data-index="${i}">
+                                <span class="w-full text-center">${w.word}</span>
                             </button>
-                        `}).join('')}
+                        `).join('')}
                     </div>
                 </div>
             </div>
@@ -204,15 +196,7 @@ export class SentencesApp {
         this.container.querySelectorAll('[data-index]').forEach(btn => btn.addEventListener('click', (e) => this.handlePoolClick(parseInt(e.currentTarget.dataset.index))));
         this.container.querySelectorAll('[data-pos]').forEach(btn => btn.addEventListener('click', (e) => this.handleBuiltClick(parseInt(e.currentTarget.dataset.pos))));
         
-        requestAnimationFrame(() => {
-            this.container.querySelectorAll('[data-fit="true"]').forEach(el => {
-                if (el.parentElement.id === 'sent-question-box') {
-                    textService.fitText(el, 16, 28);
-                } else {
-                    textService.fitText(el, 14, 28);
-                }
-            });
-        });
+        requestAnimationFrame(() => this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)));
     }
 }
 export const sentencesApp = new SentencesApp();

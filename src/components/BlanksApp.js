@@ -204,8 +204,8 @@ export class BlanksApp {
                 </div>
                 <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-2">
                     ${choices.map(c => `
-                        <button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex items-center justify-center p-1 overflow-hidden" data-id="${c.id}">
-                            <div class="option-text text-lg font-bold text-gray-700 dark:text-white text-center leading-tight whitespace-nowrap w-full h-full flex items-center justify-center m-auto">${textService.smartWrap(c.front.main)}</div>
+                        <button class="quiz-option bg-white dark:bg-dark-card border-2 border-transparent rounded-2xl shadow-sm hover:shadow-md flex items-center justify-center p-2 overflow-hidden" data-id="${c.id}">
+                            <div class="option-text font-bold text-gray-700 dark:text-white text-center leading-tight whitespace-nowrap w-full" data-fit="true">${textService.smartWrap(c.front.main)}</div>
                         </button>
                     `).join('')}
                 </div>
@@ -242,7 +242,9 @@ export class BlanksApp {
         requestAnimationFrame(() => {
             textService.fitText(this.container.querySelector('.question-text'), 12, 18);
             textService.fitText(this.container.querySelector('.sentence-text'), 18, 42);
-            textService.fitGroup(this.container.querySelectorAll('.option-text'), 20, 48);
+            this.container.querySelectorAll('.option-text').forEach(el => {
+                textService.fitText(el, 16, 42);
+            });
         });
 
         if (settingsService.get().autoPlay) {

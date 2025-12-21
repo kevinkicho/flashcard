@@ -1,4 +1,4 @@
-import { db, ref, onValue, update } from './firebase'; // Changed get -> onValue
+import { db, ref, onValue, update } from './firebase'; 
 import { settingsService } from './settingsService';
 
 class VocabService {
@@ -9,29 +9,40 @@ class VocabService {
         this.unsubscribe = null;
     }
 
-    async init() {
-        // Prevent double subscription
-        if (this.unsubscribe) return;
-        
-        console.log("VocabService: Subscribing to realtime updates...");
-        const dbRef = ref(db, 'vocab');
-        
-        // Realtime Listener
-        this.unsubscribe = onValue(dbRef, (snapshot) => {
-            if (snapshot.exists()) {
-                this.processData(snapshot);
-            } else {
-                console.warn("VocabService: No data found.");
-                this.vocabList = [];
-                this.notify();
+    // UPDATED: Now returns a Promise that resolves ONLY when data arrives
+    init() {
+        return new Promise((resolve, reject) => {
+            // If already loaded/subscribed, resolve immediately
+            if (this.unsubscribe && this.isLoaded) {
+                resolve();
+                return;
             }
-            this.isLoaded = true;
-        }, (error) => {
-            console.error("VocabService Error:", error);
+
+            console.log("VocabService: Subscribing to realtime updates...");
+            const dbRef = ref(db, 'vocab');
+            
+            this.unsubscribe = onValue(dbRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    this.processData(snapshot);
+                } else {
+                    console.warn("VocabService: No data found.");
+                    this.vocabList = [];
+                    this.notify();
+                }
+                
+                // Mark as loaded and resolve the promise on the first successful load
+                if (!this.isLoaded) {
+                    this.isLoaded = true;
+                    resolve(); 
+                }
+            }, (error) => {
+                console.error("VocabService Error:", error);
+                // Only reject if it fails on the initial load
+                if (!this.isLoaded) reject(error);
+            });
         });
     }
 
-    // Process raw snapshot into app data
     processData(snapshot) {
         const list = [];
         snapshot.forEach(childSnap => {
@@ -76,11 +87,6 @@ class VocabService {
         this.notify();
     }
 
-    // Kept for manual reloads if needed, but init() handles the main flow now
-    async reload() {
-        if (!this.unsubscribe) this.init();
-    }
-
     async saveItem(firebaseKey, data) {
         if (!firebaseKey) return;
         try {
@@ -89,12 +95,16 @@ class VocabService {
                 updates[`vocab/${firebaseKey}/${field}`] = data[field];
             });
             await update(ref(db), updates);
-            // No need to manually notify; onValue will catch the update automatically!
             console.log(`VocabService: Saved item ${firebaseKey}`);
         } catch (e) {
             console.error("VocabService: Save Failed", e);
             throw e;
         }
+    }
+
+    // Legacy support for manual reload, just calls init
+    async reload() {
+        return this.init();
     }
 
     hasData() { return this.isLoaded && this.vocabList.length > 0; }
@@ -106,7 +116,6 @@ class VocabService {
     }
     subscribe(callback) { 
         this.subscribers.push(callback); 
-        // Immediately callback with current data if loaded
         if(this.isLoaded) callback(this.vocabList);
     }
     notify() { this.subscribers.forEach(cb => cb(this.vocabList)); }

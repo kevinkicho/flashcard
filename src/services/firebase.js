@@ -4,22 +4,21 @@ import {
     ref, 
     get, 
     child, 
-    onValue, // <--- NEW: Needed for realtime vocab updates
-    update,  // <--- NEW: Needed for saving edits
-    set,
-    push,
-    increment
+    update, 
+    push, 
+    set, 
+    increment, 
+    onValue 
 } from 'firebase/database';
 import { 
     getAuth, 
-    onAuthStateChanged, 
     signInAnonymously, 
-    signInWithPopup, 
+    onAuthStateChanged, 
     GoogleAuthProvider, 
+    signInWithPopup, 
     signOut 
 } from 'firebase/auth';
 
-// TODO: PASTE YOUR ACTUAL FIREBASE CONFIG HERE
 const firebaseConfig = {
   apiKey: "AIzaSyCf-bliVUmDXtujsXhj35qAyXuYUDli_TM",
   authDomain: "polyglot121725.firebaseapp.com",
@@ -30,28 +29,29 @@ const firebaseConfig = {
   appId: "1:847375215592:web:294ede3e908d11509ed25d"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
-export {
+export { 
     app,
-    db,
-    auth,
+    db, 
+    auth, 
     googleProvider,
-    // Database exports
-    ref,
-    get,
-    child,
-    onValue, // Exporting this so vocabService can use it
-    update,  // Exporting this so edit modals can save
-    set,
-    increment,
-    push,
-    // Auth exports
+    // Auth Functions
+    signInAnonymously, 
+    signInWithPopup, 
+    signOut, 
     onAuthStateChanged,
-    signInAnonymously,
-    signInWithPopup,
-    signOut
+    // Database Functions
+    ref, 
+    get, 
+    child, 
+    update, 
+    push, 
+    set, 
+    increment, 
+    onValue
 };

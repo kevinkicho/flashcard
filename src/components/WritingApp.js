@@ -70,12 +70,18 @@ export class WritingApp {
         if(!input) return;
         
         const guess = input.value.trim().toLowerCase();
-        const correct = this.currentData.front.main.toLowerCase();
+        const correctFull = this.currentData.front.main.toLowerCase();
         
-        if (guess === correct) {
+        // NEW LOGIC: Split by separators and check if guess matches ANY variation
+        // Separators: ・(U+30FB), ･(U+FF65), comma, period, Japanese comma(、), Japanese period(。)
+        const variations = correctFull.split(/[・･,、.。]+/);
+        
+        // Check if guess matches the full string OR any of the split parts
+        const isCorrect = (guess === correctFull) || variations.some(v => v.trim() === guess);
+        
+        if (isCorrect) {
             this.isProcessing = true;
             input.classList.remove('bg-gray-100', 'dark:bg-gray-800');
-            // UPDATED: Added Gold/Yellow Effect
             input.classList.add('bg-white', 'text-green-600', 'border-yellow-400', 'ring-4', 'ring-yellow-400', 'animate-celebrate');
             
             scoreService.addScore('writing', 10);

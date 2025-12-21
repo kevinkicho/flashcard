@@ -3,29 +3,37 @@ import { settingsService } from './settingsService';
 
 class QuizService {
     generateQuestion(specificId = null) {
-        const fullList = vocabService.getFlashcardData();
+        // FIXED: Use getAll() and filter locally to avoid "getFlashcardData is not a function" error
+        const fullList = vocabService.getAll().filter(item => item.front && item.front.main && item.front.main !== "???");
+        
+        if (fullList.length < 4) return null; // Safety check
+
         const settings = settingsService.get();
         const numChoices = parseInt(settings.quizChoices) || 4;
 
         // 1. Select Correct Answer
         let correctIndex;
         if (specificId !== null) {
-            correctIndex = vocabService.findIndexById(specificId);
+            // Find index in the *filtered* list, or fallback to random
+            const foundIndex = fullList.findIndex(item => item.id === parseInt(specificId));
+            correctIndex = foundIndex !== -1 ? foundIndex : Math.floor(Math.random() * fullList.length);
         } else {
-            correctIndex = vocabService.getRandomIndex();
+            correctIndex = Math.floor(Math.random() * fullList.length);
         }
         
         const correctItem = fullList[correctIndex];
 
         // 2. Select Distractors
         const choices = [correctItem];
-        const usedIndices = new Set([correctIndex]);
+        const usedIds = new Set([correctItem.id]);
 
         while (choices.length < numChoices) {
-            const randIndex = vocabService.getRandomIndex();
-            if (!usedIndices.has(randIndex)) {
-                choices.push(fullList[randIndex]);
-                usedIndices.add(randIndex);
+            const randIndex = Math.floor(Math.random() * fullList.length);
+            const randomItem = fullList[randIndex];
+            
+            if (!usedIds.has(randomItem.id)) {
+                choices.push(randomItem);
+                usedIds.add(randomItem.id);
             }
         }
 
@@ -36,8 +44,8 @@ class QuizService {
         }
 
         return {
-            target: correctItem, // The correct object
-            choices: choices     // Mixed array
+            target: correctItem,
+            choices: choices
         };
     }
 }

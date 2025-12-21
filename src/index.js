@@ -24,12 +24,10 @@ import { textService } from './services/textService';
 
 window.wasLongPress = false;
 
-// Register Service Worker
 if ('serviceWorker' in navigator) { 
     window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW failed', err)); }); 
 }
 
-// History Management
 let savedHistory = {}; 
 try { savedHistory = JSON.parse(localStorage.getItem('polyglot_history') || '{}'); } catch (e) {}
 window.saveGameHistory = (game, id) => { 
@@ -64,7 +62,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const iconIn = document.getElementById('icon-user-in'); 
     let currentUser = null;
 
-    // --- AUTHENTICATION ---
     onAuthStateChanged(auth, async (user) => {
         currentUser = user;
         if (user) { 
@@ -89,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const saved = settingsService.get(); 
             if(saved.darkMode) document.documentElement.classList.add('dark');
             
-            // Init services (vocab uses realtime onValue now)
+            // UPDATED: init() now waits for data to arrive
             await vocabService.init(); 
             dictionaryService.fetchData();
 
@@ -101,9 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 startBtn.classList.add('bg-indigo-600', 'text-white'); 
                 startBtn.innerText = "Start Learning";
                 startBtn.onclick = () => {
-                    // Unlock audio context
                     const s = new SpeechSynthesisUtterance(''); window.speechSynthesis.speak(s);
-                    
                     const splash = document.getElementById('splash-screen');
                     if(splash) splash.style.display = 'none'; 
                     document.body.classList.remove('is-loading'); 
@@ -117,16 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const loginBtn = document.getElementById('user-login-btn');
-    if (loginBtn) loginBtn.addEventListener('click', async () => { 
-        if (currentUser && !currentUser.isAnonymous) { 
-            if(confirm("Log out?")) await signOut(auth); 
-        } else { 
-            try { await signInWithPopup(auth, googleProvider); } catch(e){} 
-        } 
-    });
+    if (loginBtn) loginBtn.addEventListener('click', async () => { if (currentUser && !currentUser.isAnonymous) { if(confirm("Log out?")) await signOut(auth); } else { try { await signInWithPopup(auth, googleProvider); } catch(e){} } });
 
-    // --- EDIT MODAL & PERMISSIONS ---
-    
     function updateEditPermissions() { 
         const isAdmin = currentUser && currentUser.email === 'kevinkicho@gmail.com'; 
         const btns = document.querySelectorAll('#btn-save-vocab, #btn-save-dict, #btn-add-dict');
@@ -146,10 +133,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const idLabel = document.getElementById('edit-vocab-id');
         if (idLabel) idLabel.textContent = `ID: ${data.id}`;
         
-        if (!container) return;
-        
-        // Store Firebase key for saving
         container.dataset.fbKey = data.firebaseKey || '';
+
+        if (!container) return;
         container.innerHTML = '';
         
         const isAdmin = currentUser && currentUser.email === 'kevinkicho@gmail.com';
@@ -216,31 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
          list.innerHTML = html;
     }
 
-    // Expose Global Audio Player for Dictionary
     window.playDictAudio = (text) => {
         audioService.speak(text, 'zh-CN');
     };
-
-    // --- SAVE HANDLERS ---
-    const saveVocabBtn = document.getElementById('btn-save-vocab');
-    if(saveVocabBtn) {
-        saveVocabBtn.addEventListener('click', async () => {
-            const container = document.getElementById('edit-vocab-fields');
-            const key = container.dataset.fbKey;
-            if(!key) return alert("Error: No record ID");
-            
-            saveVocabBtn.innerText = "Saving...";
-            saveVocabBtn.disabled = true;
-            try {
-                const inputs = container.querySelectorAll('.vocab-input');
-                const data = {};
-                inputs.forEach(i => data[i.dataset.key] = i.value);
-                await vocabService.saveItem(key, data);
-                alert("Vocabulary saved!");
-            } catch(e) { console.error(e); alert("Save failed"); } 
-            finally { saveVocabBtn.innerText = "SAVE VOCAB"; saveVocabBtn.disabled = false; }
-        });
-    }
 
     const saveDictBtn = document.getElementById('btn-save-dict');
     if(saveDictBtn) {
@@ -262,12 +226,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 await Promise.all(updates);
                 alert("Dictionary saved!");
-            } catch(e) { console.error(e); alert("Save failed"); }
+            } catch(e) { console.error(e); alert("Error."); } 
             finally { saveDictBtn.innerText = "SAVE DICTIONARY"; saveDictBtn.disabled = false; }
         });
     }
 
-    // --- NAVIGATION & ROUTING ---
+    const saveVocabBtn = document.getElementById('btn-save-vocab');
+    if(saveVocabBtn) {
+        saveVocabBtn.addEventListener('click', async () => {
+            const container = document.getElementById('edit-vocab-fields');
+            const key = container.dataset.fbKey;
+            if(!key) return alert("Error: No record ID");
+            
+            saveVocabBtn.innerText = "Saving...";
+            saveVocabBtn.disabled = true;
+            try {
+                const inputs = container.querySelectorAll('.vocab-input');
+                const data = {};
+                inputs.forEach(i => data[i.dataset.key] = i.value);
+                await vocabService.saveItem(key, data);
+                alert("Vocabulary saved!");
+            } catch(e) { console.error(e); alert("Save failed"); } 
+            finally { saveVocabBtn.innerText = "SAVE VOCAB"; saveVocabBtn.disabled = false; }
+        });
+    }
+
     function renderView(viewName) { 
         audioService.stop(); 
         if (viewName === 'home') document.body.classList.remove('game-mode'); 
@@ -282,19 +265,18 @@ document.addEventListener('DOMContentLoaded', () => {
             target.classList.remove('hidden'); 
             const lastId = savedHistory[viewName]; 
             
-            // Mount the appropriate app
-            if (viewName === 'flashcard') { flashcardApp.mount('flashcard-view'); currentActiveApp = flashcardApp; if(lastId) flashcardApp.goto(lastId); } 
-            if (viewName === 'quiz') { quizApp.mount('quiz-view'); currentActiveApp = quizApp; if(lastId) quizApp.next(lastId); } 
-            if (viewName === 'sentences') { sentencesApp.mount('sentences-view'); currentActiveApp = sentencesApp; if(lastId) sentencesApp.next(lastId); } 
-            if (viewName === 'blanks') { blanksApp.mount('blanks-view'); currentActiveApp = blanksApp; if(lastId) blanksApp.next(lastId); }
-            if (viewName === 'listening') { listeningApp.mount('listening-view'); currentActiveApp = listeningApp; if(lastId) listeningApp.next(lastId); }
-            if (viewName === 'match') { matchApp.mount('match-view'); currentActiveApp = matchApp; }
-            if (viewName === 'memory') { memoryApp.mount('memory-view'); currentActiveApp = memoryApp; }
-            if (viewName === 'finder') { finderApp.mount('finder-view'); currentActiveApp = finderApp; }
-            if (viewName === 'constructor') { constructorApp.mount('constructor-view'); currentActiveApp = constructorApp; }
-            if (viewName === 'writing') { writingApp.mount('writing-view'); currentActiveApp = writingApp; }
-            if (viewName === 'truefalse') { trueFalseApp.mount('truefalse-view'); currentActiveApp = trueFalseApp; }
-            if (viewName === 'reverse') { reverseApp.mount('reverse-view'); currentActiveApp = reverseApp; }
+            if (viewName === 'flashcard' && views.flashcard) { flashcardApp.mount('flashcard-view'); currentActiveApp = flashcardApp; if(lastId) flashcardApp.goto(lastId); } 
+            if (viewName === 'quiz' && views.quiz) { quizApp.mount('quiz-view'); currentActiveApp = quizApp; if(lastId) quizApp.next(lastId); } 
+            if (viewName === 'sentences' && views.sentences) { sentencesApp.mount('sentences-view'); currentActiveApp = sentencesApp; if(lastId) sentencesApp.next(lastId); } 
+            if (viewName === 'blanks' && views.blanks) { blanksApp.mount('blanks-view'); currentActiveApp = blanksApp; if(lastId) blanksApp.next(lastId); }
+            if (viewName === 'listening' && views.listening) { listeningApp.mount('listening-view'); currentActiveApp = listeningApp; if(lastId) listeningApp.next(lastId); }
+            if (viewName === 'match' && views.match) { matchApp.mount('match-view'); currentActiveApp = matchApp; }
+            if (viewName === 'memory' && views.memory) { memoryApp.mount('memory-view'); currentActiveApp = memoryApp; }
+            if (viewName === 'finder' && views.finder) { finderApp.mount('finder-view'); currentActiveApp = finderApp; }
+            if (viewName === 'constructor' && views.constructor) { constructorApp.mount('constructor-view'); currentActiveApp = constructorApp; }
+            if (viewName === 'writing' && views.writing) { writingApp.mount('writing-view'); currentActiveApp = writingApp; }
+            if (viewName === 'truefalse' && views.truefalse) { trueFalseApp.mount('truefalse-view'); currentActiveApp = trueFalseApp; }
+            if (viewName === 'reverse' && views.reverse) { reverseApp.mount('reverse-view'); currentActiveApp = reverseApp; }
         } 
     }
 
@@ -312,7 +294,6 @@ document.addEventListener('DOMContentLoaded', () => {
         resizeTimer = setTimeout(() => { if (currentActiveApp && currentActiveApp.render) currentActiveApp.render(); else document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el)); }, 100);
     });
 
-    // --- ACHIEVEMENTS & SCORES ---
     const achPopup = document.getElementById('achievement-popup');
     window.addEventListener('achievement:unlocked', (e) => {
         const ach = e.detail; const t = document.getElementById('ach-popup-title'); const d = document.getElementById('ach-popup-desc'); const p = document.getElementById('ach-popup-pts');
@@ -341,7 +322,6 @@ document.addEventListener('DOMContentLoaded', () => {
              return sum + (achDef ? achDef.points : 0);
         }, 0);
 
-        // Subtle Total Score Design
         let html = `
         <div class="mb-8 flex flex-col items-center">
             <div class="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Total Score</div>
@@ -379,10 +359,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.closest('.game-edit-btn')) {
             let app = currentActiveApp; 
             if (app) {
-                // Get current item ID
                 let item = app.currentData && (app.currentData.target || app.currentData.item) ? (app.currentData.target || app.currentData.item) : (app.currentData || (app.currentIndex!==undefined && vocabService.getAll().length > app.currentIndex ? vocabService.getAll()[app.currentIndex] : null));
-                
-                if (item && item.id !== undefined) {
+                if (item && item.id) {
                     currentEditId = item.id;
                     const fullData = vocabService.getAll().find(v => v.id == item.id);
                     if(fullData) {
@@ -515,36 +493,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const s = settingsService.get();
         const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
         const setChk = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val; };
-        
-        setVal('target-select', s.targetLang); 
-        setVal('origin-select', s.originLang);
-        setChk('toggle-dark', s.darkMode); 
-        setVal('volume-slider', s.volume !== undefined ? s.volume : 1.0); 
-        setVal('font-family-select', s.fontFamily); 
-        setVal('font-weight-select', s.fontWeight);
-        
-        // Removed audio toggles as requested
-        setChk('toggle-vocab', s.showVocab); 
-        setChk('toggle-sentence', s.showSentence); 
-        setChk('toggle-english', s.showEnglish);
-        
+        setVal('target-select', s.targetLang); setVal('origin-select', s.originLang);
+        setChk('toggle-dark', s.darkMode); setVal('volume-slider', s.volume !== undefined ? s.volume : 1.0); setVal('font-family-select', s.fontFamily); setVal('font-weight-select', s.fontWeight);
+        setChk('toggle-vocab', s.showVocab); setChk('toggle-sentence', s.showSentence); setChk('toggle-english', s.showEnglish);
         setChk('toggle-sent-anim', s.sentencesWinAnim !== false);
     }
-
     function bindSetting(id, key, cb) { const el = document.getElementById(id); if(el) el.addEventListener('change', (e) => { settingsService.set(key, e.target.type==='checkbox'?e.target.checked:e.target.value); if(cb) cb(); }); }
-    
-    bindSetting('target-select', 'targetLang', ()=>flashcardApp.refresh()); 
-    bindSetting('origin-select', 'originLang', ()=>flashcardApp.refresh());
-    bindSetting('toggle-dark', 'darkMode', () => document.documentElement.classList.toggle('dark')); 
-    bindSetting('volume-slider', 'volume'); 
-    bindSetting('font-family-select', 'fontFamily', () => document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el))); 
-    bindSetting('font-weight-select', 'fontWeight', () => document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el))); 
-    bindSetting('toggle-vocab', 'showVocab', ()=>flashcardApp.refresh()); 
-    bindSetting('toggle-sentence', 'showSentence', ()=>flashcardApp.refresh()); 
-    bindSetting('toggle-english', 'showEnglish', ()=>flashcardApp.refresh()); 
-    bindSetting('toggle-sent-anim', 'sentencesWinAnim'); 
-
-    // CLEANED ACCORDIONS LIST
+    bindSetting('target-select', 'targetLang', ()=>flashcardApp.refresh()); bindSetting('origin-select', 'originLang', ()=>flashcardApp.refresh());
+    bindSetting('toggle-dark', 'darkMode', () => document.documentElement.classList.toggle('dark')); bindSetting('volume-slider', 'volume'); bindSetting('font-family-select', 'fontFamily', () => document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el))); bindSetting('font-weight-select', 'fontWeight', () => document.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el))); bindSetting('toggle-vocab', 'showVocab', ()=>flashcardApp.refresh()); bindSetting('toggle-sentence', 'showSentence', ()=>flashcardApp.refresh()); bindSetting('toggle-english', 'showEnglish', ()=>flashcardApp.refresh()); bindSetting('toggle-sent-anim', 'sentencesWinAnim');
     [{btn:'display-accordion-btn',c:'display-options',a:'accordion-arrow-1'},{btn:'sent-accordion-btn',c:'sent-options',a:'accordion-arrow-sent'},{btn:'fonts-accordion-btn',c:'fonts-options',a:'accordion-arrow-fonts'}].forEach(o=>{ const b=document.getElementById(o.btn), c=document.getElementById(o.c), a=document.getElementById(o.a); if(b) b.addEventListener('click', ()=>{ c.classList.toggle('open'); a.classList.toggle('rotate'); }); });
 
     let currentEditId = null;

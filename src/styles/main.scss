@@ -109,3 +109,13 @@ body {
 .achievement-icon-glow {
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
 }
+
+/* --- TEXT FIT UTILITIES (New) --- */
+/* Ensures elements being resized don't wrap unexpectedly */
+[data-fit="true"] {
+    white-space: nowrap;
+    display: inline-block;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: clip; /* Clean cut if it momentarily overflows */
+}

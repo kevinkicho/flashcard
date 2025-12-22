@@ -95,6 +95,7 @@ export class FlashcardApp {
         audioService.speak(text, lang);
     }
 
+    // --- RENDER LOGIC WITH FIXES ---
     render() {
         if (!this.container) return;
         
@@ -134,7 +135,7 @@ export class FlashcardApp {
                                 <button class="audio-btn p-2 text-gray-400 hover:text-indigo-500 transition-colors bg-gray-50 dark:bg-gray-800 rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></button>
                             </div>
                             
-                            <div class="flex-grow flex flex-col items-center justify-center p-2 overflow-hidden">
+                            <div class="flex-grow w-full flex flex-col items-center justify-center p-2 overflow-hidden">
                                 <h2 class="fc-front-text font-black text-gray-800 dark:text-white text-center leading-tight whitespace-nowrap" data-fit="true">${textService.smartWrap(front.main)}</h2>
                                 ${front.sub ? `<p class="fc-front-sub font-medium text-gray-500 dark:text-gray-400 mt-4 text-center whitespace-nowrap" data-fit="true">${front.sub}</p>` : ''}
                             </div>
@@ -148,7 +149,7 @@ export class FlashcardApp {
                                 <button class="audio-btn p-2 text-gray-400 hover:text-purple-500 transition-colors bg-white dark:bg-dark-card rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg></button>
                             </div>
 
-                            <div class="flex-grow flex flex-col items-center justify-center text-center space-y-6 overflow-hidden">
+                            <div class="flex-grow w-full flex flex-col items-center justify-center text-center space-y-6 overflow-hidden">
                                 <h2 class="fc-back-text font-black text-indigo-600 dark:text-indigo-400 leading-none whitespace-nowrap" data-fit="true">${textService.smartWrap(back.definition)}</h2>
                                 
                                 ${back.sentenceTarget && s.showSentence ? `
@@ -184,7 +185,6 @@ export class FlashcardApp {
             btn.addEventListener('click', (e) => { e.stopPropagation(); this.playAudio(); })
         );
         
-        // Navigation Logic Binding
         const idInput = this.container.querySelector('#fc-id-input');
         if(idInput) {
             idInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') this.goto(idInput.value); });
@@ -196,14 +196,24 @@ export class FlashcardApp {
             this.goto(val);
         });
 
-        requestAnimationFrame(() => {
+        // --- CRITICAL FIX: TIMEOUT FOR RESIZE ---
+        // We use setTimeout to ensure the browser has painted the DOM and we have actual widths.
+        setTimeout(() => {
             if (!this.container) return;
-            textService.fitText(this.container.querySelector('.fc-front-text'), 32, 130, true);
-            textService.fitText(this.container.querySelector('.fc-back-text'), 24, 90, true);
-            this.container.querySelectorAll('.fc-front-sub').forEach(el => textService.fitText(el, 16, 36, true));
-            this.container.querySelectorAll('.fc-back-sent').forEach(el => textService.fitText(el, 16, 30, true));
-            this.container.querySelectorAll('.fc-back-sent-trans').forEach(el => textService.fitText(el, 14, 26, true));
-        });
+            
+            // Apply text fit to all elements tagged with data-fit="true"
+            // We can now use the Service's group method for cleanliness, or manual calls.
+            // Using manual calls for specific sizing control (Main vs Sub) as per your design.
+            
+            textService.fitText(this.container.querySelector('.fc-front-text'), 32, 130);
+            textService.fitText(this.container.querySelector('.fc-back-text'), 24, 90);
+            
+            // Handle lists of elements
+            this.container.querySelectorAll('.fc-front-sub').forEach(el => textService.fitText(el, 16, 36));
+            this.container.querySelectorAll('.fc-back-sent').forEach(el => textService.fitText(el, 16, 30));
+            this.container.querySelectorAll('.fc-back-sent-trans').forEach(el => textService.fitText(el, 14, 26));
+            
+        }, 50); // 50ms delay to beat the race condition
     }
 }
 

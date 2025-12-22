@@ -1,5 +1,5 @@
 import { settingsService } from '../services/settingsService';
-import { textService } from '../services/textService'; // Import added
+import { textService } from '../services/textService';
 
 export const Card = (item, isFlipped) => {
     const settings = settingsService.get();
@@ -20,7 +20,7 @@ export const Card = (item, isFlipped) => {
                     </span>
                 </div>
                 
-                ${item.front.sub ? `<div class="mt-4 text-xl text-indigo-500 dark:text-dark-primary font-bold opacity-80 select-none">${item.front.sub}</div>` : ''}
+                ${item.front.sub ? `<div class="mt-4 text-xl text-indigo-500 dark:text-dark-primary font-bold opacity-80 select-none whitespace-nowrap" data-fit="true">${item.front.sub}</div>` : ''}
                 
                 <div class="absolute bottom-6 text-gray-300 dark:text-gray-600 animate-bounce select-none">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 13l-7 7-7-7"></path></svg>
@@ -29,7 +29,6 @@ export const Card = (item, isFlipped) => {
         `;
     } else {
         // --- BACK SIDE (Answer) ---
-        // Uses a distinct border color (Green-ish) to indicate "Answer Revealed" state
         const answerClass = containerClass.replace('border-indigo-100', 'border-green-200 dark:border-green-900/30 bg-green-50/50 dark:bg-green-900/10');
 
         return `
@@ -44,10 +43,10 @@ export const Card = (item, isFlipped) => {
                 
                 ${settings.showSentence && item.back.sentenceTarget ? `
                     <div class="mt-6 w-full p-4 bg-white/50 dark:bg-black/20 rounded-xl border border-gray-100 dark:border-gray-700">
-                        <p class="text-lg font-medium text-center leading-relaxed select-text text-gray-700 dark:text-gray-200 ${fontClass}">
+                        <p class="text-lg font-medium text-center leading-relaxed select-text text-gray-700 dark:text-gray-200 ${fontClass} whitespace-nowrap" data-fit="true">
                             ${item.back.sentenceTarget}
                         </p>
-                        ${settings.showEnglish ? `<p class="mt-2 text-sm text-gray-400 dark:text-gray-500 text-center italic leading-snug border-t border-gray-200 dark:border-gray-700 pt-2">${item.back.sentenceOrigin}</p>` : ''}
+                        ${settings.showEnglish ? `<p class="mt-2 text-sm text-gray-400 dark:text-gray-500 text-center italic leading-snug border-t border-gray-200 dark:border-gray-700 pt-2 whitespace-nowrap" data-fit="true">${item.back.sentenceOrigin}</p>` : ''}
                     </div>
                 ` : ''}
             </div>

@@ -1,136 +1,98 @@
 import { settingsService } from './settingsService';
 
 class TextService {
-    _calculateBestFit(el, min, max, enforceNoWrap = true) {
-        if (!el || !el.parentElement) return min;
+    /**
+     * The Main "SmartFit" Function.
+     * Maximizes font size within a container without wrapping.
+     * * @param {HTMLElement} el - The element to resize.
+     * @param {number} min - Minimum font size (default 10).
+     * @param {number} max - Maximum starting font size (default 100).
+     * @param {boolean} enforceNoWrap - (Deprecated/Always True for this logic) Forces single line.
+     */
+    fitText(el, min = 10, max = 100, enforceNoWrap = true) {
+        if (!el) return;
 
-        const parent = el.parentElement;
-        const style = window.getComputedStyle(parent);
-        const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-        const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+        // --- 1. PREPARATION ---
+        // If the element has internal structure (like the "smart stacks" from smartWrap),
+        // we need to target the containers slightly differently, but the logic is similar.
+        // For this specific 'No Wrap' request, we operate on the main element or its children.
         
-        const parentW = parent.clientWidth - padX;
-        const parentH = parent.clientHeight - padY;
-        
-        if (parentW <= 0 || parentH <= 0) return min;
+        // Ensure the parent has a width. If 0, the DOM isn't ready.
+        if (el.clientWidth === 0 && el.parentElement?.clientWidth === 0) {
+            // Safety: if called too early, do nothing.
+            return;
+        }
 
-        const originalSize = el.style.fontSize;
+        const originalText = el.innerText;
         
-        // Reset styles for measurement
-        el.style.fontSize = `${min}px`;
-        el.style.lineHeight = '1.1';
-        el.style.display = 'inline-block';
+        // Force these styles to ensure accurate measurement
         el.style.width = '100%';
+        el.style.display = 'block';     
+        el.style.whiteSpace = 'nowrap'; // CRITICAL: Never wrap
+        el.style.overflow = 'hidden';   // Hide overflow during calc
+        el.style.lineHeight = '1.2';
         
-        // --- APPLY WRAPPING RULES ---
-        if (enforceNoWrap) {
-            // STRICT MODE: Force single lines (Shrink to fit)
-            // This ensures "LongWordPart1" inside a stack shrinks instead of wrapping.
-            el.style.whiteSpace = 'nowrap';
-            el.style.wordBreak = 'keep-all';
-            el.style.overflowWrap = 'normal';
-            el.style.wordWrap = 'normal';
-        } else {
-            // POLITE MODE: Allow polite wrapping
-            // This allows sentences to wrap at spaces naturally.
-            el.style.whiteSpace = 'normal';
-            el.style.wordBreak = 'normal'; 
-            el.style.overflowWrap = 'normal'; 
-            el.style.wordWrap = 'normal';
+        // --- 2. THE MAXIMIZE-THEN-SHRINK LOOP ---
+        let currentSize = max;
+        el.style.fontSize = `${currentSize}px`;
+
+        // While the text sticks out (scrollWidth > clientWidth) AND we are above min size
+        // We also check scrollHeight to ensure it doesn't wrap vertically if container is short
+        while (
+            (el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight) && 
+            currentSize > min
+        ) {
+            currentSize--;
+            el.style.fontSize = `${currentSize}px`;
         }
 
-        let best = min;
-        let low = min;
-        let high = max;
-        let iterations = 0;
-
-        while (low <= high && iterations < 15) {
-            const mid = Math.floor((low + high) / 2);
-            el.style.fontSize = `${mid}px`;
-            
-            if (el.scrollWidth <= parentW && el.scrollHeight <= parentH) {
-                best = mid;
-                low = mid + 1;
-            } else {
-                high = mid - 1;
-            }
-            iterations++;
-        }
-
-        el.style.fontSize = originalSize;
-        return Math.max(best - 1, min);
-    }
-
-    fitText(el, min = 10, max = 150, enforceNoWrap = true) {
-        if (!el || !el.style) return;
-        
-        // --- SMART DETECTION ---
-        // If the element contains divs, it was created by smartWrap (it's a stack).
-        // In that case, we MUST force 'nowrap' behavior so the text inside each stack item
-        // shrinks to fit the width, rather than wrapping to a new line.
-        const isSmartStack = el.querySelector('div') !== null;
-        
-        // If it's a stack, ignore the argument and Force No Wrap.
-        const effectiveNoWrap = isSmartStack ? true : enforceNoWrap;
-
-        const size = this._calculateBestFit(el, min, max, effectiveNoWrap);
-        el.style.fontSize = `${size}px`;
-        el.style.lineHeight = '1.1';
-        
-        // Apply the determined rules
-        if (effectiveNoWrap) {
-            el.style.whiteSpace = 'nowrap';
-            el.style.wordBreak = 'keep-all';
-            el.style.overflowWrap = 'normal';
-            el.style.wordWrap = 'normal';
-        } else {
-            el.style.whiteSpace = 'normal';
-            el.style.wordBreak = 'normal';
-            el.style.overflowWrap = 'normal';
-            el.style.wordWrap = 'normal';
+        // --- 3. SAFETY CHECK ---
+        // If we hit the bottom and it still overflows, clamp it to min.
+        if (currentSize <= min) {
+            el.style.fontSize = `${min}px`;
+            // Optional: If you want ellipsis when it really doesn't fit:
+            // el.style.textOverflow = 'ellipsis';
         }
     }
 
-    fitGroup(elements, min = 10, max = 48, enforceNoWrap = true) {
-        if (!elements || elements.length === 0) return;
-        let minSizeFound = max;
+    /**
+     * Helper to fit a group of elements (used by apps to resize everything at once).
+     */
+    fitGroup(elements, min = 10, max = 100) {
+        if (!elements) return;
         
-        // 1. Calculate best fit for everyone
-        elements.forEach(el => {
-            if(el && el.style) { 
-                // Check individually if this element is a stack
-                const isSmartStack = el.querySelector('div') !== null;
-                const effectiveNoWrap = isSmartStack ? true : enforceNoWrap;
-                
-                const bestForEl = this._calculateBestFit(el, min, max, effectiveNoWrap);
-                if (bestForEl < minSizeFound) minSizeFound = bestForEl;
-            }
-        });
+        // Handle NodeList or Array
+        const elArray = elements instanceof NodeList ? Array.from(elements) : elements;
 
-        // 2. Apply min size and correct wrapping rules to everyone
-        elements.forEach(el => {
-            if(el && el.style) { 
-                el.style.fontSize = `${minSizeFound}px`;
-                el.style.lineHeight = '1.1';
-                
-                const isSmartStack = el.querySelector('div') !== null;
-                const effectiveNoWrap = isSmartStack ? true : enforceNoWrap;
-
-                if (effectiveNoWrap) {
-                    el.style.whiteSpace = 'nowrap';
-                    el.style.wordBreak = 'keep-all';
-                    el.style.overflowWrap = 'normal';
-                    el.style.wordWrap = 'normal';
-                } else {
-                    el.style.whiteSpace = 'normal';
-                    el.style.wordBreak = 'normal';
-                    el.style.overflowWrap = 'normal';
-                    el.style.wordWrap = 'normal';
-                }
-            }
+        elArray.forEach(el => {
+            this.fitText(el, min, max);
         });
     }
 
+    /**
+     * Prepares text for display (handling Japanese, etc.)
+     * This creates the structure.
+     */
+    smartWrap(text) {
+        if (!text) return "";
+        const separatorRegex = /[\/·・･,、。]+/;
+
+        if (separatorRegex.test(text)) {
+            // These DIVs create the structure.
+            // TextService will resize the PARENT, so these children need to flow nicely.
+            // For "No Wrap" behavior on the whole card, we usually want these to stack 
+            // but the font size to be governed by the widest one.
+            return text.split(separatorRegex)
+                .filter(part => part.trim().length > 0)
+                .map(part => `<div class="w-full my-1 whitespace-nowrap">${part.trim()}</div>`)
+                .join('');
+        }
+        
+        // Default return
+        return text;
+    }
+
+    // --- Japanese Tokenizer Utilities (Unchanged but included for completeness) ---
     tokenizeJapanese(text, vocab = '', applyPostProcessing = true) {
         if (typeof Intl === 'undefined' || !Intl.Segmenter) {
             return text.split('').filter(s => s.trim().length > 0);
@@ -182,28 +144,6 @@ class TextService {
             processed = nextPass;
         }
         return processed;
-    }
-
-    smartWrap(text) {
-        if (!text) return "";
-        const separatorRegex = /[\/·・･,、。]+/;
-
-        if (separatorRegex.test(text)) {
-            // These DIVs create the structure.
-            // FitText will see them and force 'nowrap' on the content, ensuring proper stacking + shrinking.
-            return text.split(separatorRegex)
-                .filter(part => part.trim().length > 0)
-                .map(part => `<div class="w-full my-1">${part.trim()}</div>`)
-                .join('');
-        }
-
-        if (/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/.test(text)) {
-            return text.split('').map(char => 
-                `<span class="inline-block">${char}</span>`
-            ).join('');
-        }
-        
-        return text;
     }
 }
 

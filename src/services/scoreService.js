@@ -1,4 +1,4 @@
-import { db, auth, ref, update, increment, onValue } from './firebase';
+import { db, auth, ref, update, increment, onValue, get } from './firebase';
 import { achievementService } from './achievementService';
 
 class ScoreService {
@@ -9,7 +9,6 @@ class ScoreService {
         this.isInitialized = false;
     }
 
-    // NEW: We call this manually from index.js when the page is ready
     init() {
         if (this.isInitialized) return;
         this.isInitialized = true;
@@ -18,7 +17,6 @@ class ScoreService {
             if (user) {
                 this.userId = user.uid;
                 this.listenToToday();
-                // Check achievements only after we have a user
                 achievementService.checkLoginAchievements(user.uid);
             } else {
                 this.userId = null;
@@ -43,13 +41,56 @@ class ScoreService {
         onValue(todayRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                this.todayScore = (data.flashcard || 0) + (data.quiz || 0) + (data.sentences || 0) + (data.blanks || 0);
+                // Sum all known game types
+                const games = ['flashcard', 'quiz', 'sentences', 'blanks', 'listening', 'match', 'memory', 'finder', 'constructor', 'writing', 'truefalse', 'reverse'];
+                this.todayScore = games.reduce((sum, g) => sum + (data[g] || 0), 0);
             } else {
                 this.todayScore = 0;
             }
             this.notify();
         });
     }
+
+    // --- MIGRATION LOGIC ---
+    async getSnapshot() {
+        if (!this.userId) return null;
+        try {
+            const snap = await get(ref(db, `users/${this.userId}/stats`));
+            return snap.exists() ? snap.val() : null;
+        } catch (e) {
+            console.error("Snapshot failed", e);
+            return null;
+        }
+    }
+
+    async migrateStats(oldData) {
+        if (!this.userId || !oldData) return;
+        
+        const updates = {};
+        // Deep merge oldData into new user path
+        // We iterate through dates and totals in the old data
+        Object.keys(oldData).forEach(dateKey => {
+            const dateObj = oldData[dateKey];
+            if (typeof dateObj === 'object') {
+                Object.keys(dateObj).forEach(metric => {
+                    const val = dateObj[metric];
+                    if (typeof val === 'number') {
+                        updates[`users/${this.userId}/stats/${dateKey}/${metric}`] = increment(val);
+                    }
+                });
+            }
+        });
+
+        if (Object.keys(updates).length > 0) {
+            try {
+                await update(ref(db), updates);
+                console.log("Migration successful");
+            } catch (e) {
+                console.error("Migration failed", e);
+            }
+        }
+    }
+    // -----------------------
 
     addScore(gameType, points) {
         if (!this.userId) return;

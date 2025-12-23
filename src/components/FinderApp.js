@@ -166,7 +166,7 @@ export class FinderApp {
                 <div class="grid grid-cols-3 gap-2 flex-1">
                     ${choices.map(c => `
                         <button class="find-choice bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:border-rose-300 active:scale-95 transition-all p-1 flex items-center justify-center overflow-hidden" data-id="${c.id}">
-                            <span class="find-text w-full text-center font-bold text-gray-700 dark:text-white leading-none">${textService.smartWrap(c.front.main)}</span>
+                            <span class="find-text w-full text-center font-bold text-gray-700 dark:text-white leading-none">${textService.smartWrap(c.front.main.replace(/\.$/, ''))}</span>
                         </button>
                     `).join('')}
                 </div>

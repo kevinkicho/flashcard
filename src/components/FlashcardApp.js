@@ -16,7 +16,11 @@ export class FlashcardApp {
         this.container = document.getElementById(elementId);
         const list = vocabService.getAll();
         if (list && list.length > 0) {
-           this.currentIndex = vocabService.getRandomIndex();
+           // Only randomize if we haven't loaded data yet, 
+           // otherwise we might lose our place if unmounting/remounting
+           if (!this.currentData) {
+               this.currentIndex = vocabService.getRandomIndex();
+           }
         }
         this.render();
     }
@@ -27,8 +31,13 @@ export class FlashcardApp {
         if (el) el.addEventListener(event, (e) => { e.stopPropagation(); handler(e); });
     }
 
+    // --- FIX IS HERE ---
     refresh() {
-        this.render();
+        // BUG FIX: deeply reload the current item to get the new language data
+        // Previous version only called this.render(), which used stale data.
+        if (this.container && !this.container.classList.contains('hidden')) {
+            this.loadGame(this.currentIndex);
+        }
     }
 
     loadGame(index) {
@@ -36,7 +45,10 @@ export class FlashcardApp {
         if (!list || list.length === 0) {
             this.currentData = null;
         } else {
+            // Ensure index is within bounds (wrap around)
             this.currentIndex = (index + list.length) % list.length;
+            
+            // Fetch the NEW object from the service (which has the updated languages)
             this.currentData = list[this.currentIndex];
             this.isFlipped = false;
             
@@ -95,7 +107,6 @@ export class FlashcardApp {
         audioService.speak(text, lang);
     }
 
-    // --- RENDER LOGIC WITH FIXES ---
     render() {
         if (!this.container) return;
         
@@ -196,24 +207,14 @@ export class FlashcardApp {
             this.goto(val);
         });
 
-        // --- CRITICAL FIX: TIMEOUT FOR RESIZE ---
-        // We use setTimeout to ensure the browser has painted the DOM and we have actual widths.
         setTimeout(() => {
             if (!this.container) return;
-            
-            // Apply text fit to all elements tagged with data-fit="true"
-            // We can now use the Service's group method for cleanliness, or manual calls.
-            // Using manual calls for specific sizing control (Main vs Sub) as per your design.
-            
             textService.fitText(this.container.querySelector('.fc-front-text'), 32, 130);
             textService.fitText(this.container.querySelector('.fc-back-text'), 24, 90);
-            
-            // Handle lists of elements
             this.container.querySelectorAll('.fc-front-sub').forEach(el => textService.fitText(el, 16, 36));
             this.container.querySelectorAll('.fc-back-sent').forEach(el => textService.fitText(el, 16, 30));
             this.container.querySelectorAll('.fc-back-sent-trans').forEach(el => textService.fitText(el, 14, 26));
-            
-        }, 50); // 50ms delay to beat the race condition
+        }, 50);
     }
 }
 

@@ -19,7 +19,6 @@ export class SentencesApp {
         this.random();
     }
 
-    // NEW: Allows the app to reload data without changing the question ID
     refresh() {
         this.loadGame();
     }
@@ -72,6 +71,9 @@ export class SentencesApp {
             parts = sentence.split(/([\s,.!?、。]+)/).filter(s => s.trim().length > 0);
         }
         
+        // Remove periods/punctuation from the choice pool
+        parts = parts.filter(p => !/^[\.,、。!?]+$/.test(p.trim()));
+
         this.wordPool = parts.map((word, i) => ({ word, id: i, used: false })).sort(() => 0.5 - Math.random());
         this.builtIndices = [];
         this.currentData = { item, parts, sentence };
@@ -87,25 +89,71 @@ export class SentencesApp {
             audioService.speak(w.word, settingsService.get().targetLang);
         }
 
+        // Logic Update
         this.builtIndices.push(poolIdx);
         w.used = true;
-        this.render();
+
+        // Optimized Visual Update
+        this.updateTileVisuals(poolIdx, true);
+        this.updateSlots();
         this.checkWin();
     }
 
     handleBuiltClick(builtPos) {
         if (this.isProcessing) return;
         const poolIdx = this.builtIndices[builtPos];
+        
+        // Logic Update
         this.wordPool[poolIdx].used = false;
         this.builtIndices.splice(builtPos, 1);
-        this.render();
+
+        // Optimized Visual Update
+        this.updateTileVisuals(poolIdx, false);
+        this.updateSlots();
+    }
+
+    // Toggle opacity without redrawing the whole list
+    updateTileVisuals(poolIdx, isUsed) {
+        if (!this.container) return;
+        const btn = this.container.querySelector(`button[data-index="${poolIdx}"]`);
+        if (btn) {
+            if (isUsed) {
+                btn.classList.add('opacity-20', 'pointer-events-none');
+            } else {
+                btn.classList.remove('opacity-20', 'pointer-events-none');
+            }
+        }
+    }
+
+    // Redraw only the answer area (top part)
+    updateSlots() {
+        const slotContainer = this.container ? this.container.querySelector('#sent-slots') : null;
+        if (!slotContainer) return;
+
+        if (this.builtIndices.length === 0) {
+            slotContainer.innerHTML = '<span class="text-gray-400 text-sm self-center font-medium animate-pulse w-full text-center">Tap words below</span>';
+        } else {
+            // Check count to adjust font size in the answer box too
+            const isLong = this.wordPool.length > 10;
+            const sizeClass = isLong ? 'text-lg px-2 py-1' : 'text-xl px-3 py-2';
+
+            slotContainer.innerHTML = this.builtIndices.map((poolIdx, i) => `
+                <button class="bg-pink-500 text-white rounded-lg font-bold shadow-md active:scale-95 whitespace-nowrap ${sizeClass}" data-pos="${i}">${this.wordPool[poolIdx].word}</button>
+            `).join('');
+            
+            slotContainer.querySelectorAll('[data-pos]').forEach(btn => 
+                btn.addEventListener('click', (e) => this.handleBuiltClick(parseInt(e.currentTarget.dataset.pos)))
+            );
+        }
     }
 
     async checkWin() {
         const currentStr = this.builtIndices.map(idx => this.wordPool[idx].word).join('');
         const targetStr = this.currentData.parts.join('');
         
-        if (currentStr.replace(/\s/g, '') === targetStr.replace(/\s/g, '')) {
+        const clean = (s) => s.replace(/[\s\.,、。!?]/g, '');
+
+        if (clean(currentStr) === clean(targetStr)) {
             this.isProcessing = true;
             scoreService.addScore('sentences', 10);
             
@@ -114,7 +162,7 @@ export class SentencesApp {
             }
 
             const zone = this.container.querySelector('#sent-slots');
-            zone.classList.add('animate-celebrate', 'border-green-500', 'bg-green-50', 'dark:bg-green-900/20');
+            if(zone) zone.classList.add('animate-celebrate', 'border-green-500', 'bg-green-50', 'dark:bg-green-900/20');
             setTimeout(() => this.next(), 500);
         }
     }
@@ -127,6 +175,26 @@ export class SentencesApp {
         if (!this.container) return;
         const { item } = this.currentData;
         const originText = item.back.sentenceOrigin || item.back.main || item.back.definition;
+
+        // --- DYNAMIC SIZING LOGIC ---
+        const count = this.wordPool.length;
+        
+        // Defaults (Comfortable mode)
+        let btnHeight = 'min-h-[5rem]';
+        let textSize = 'text-3xl';
+        let padding = 'px-4 py-3';
+
+        // Compact mode if many words
+        if (count > 12) {
+            btnHeight = 'min-h-[3rem]'; 
+            textSize = 'text-lg'; 
+            padding = 'px-2 py-1';
+        } 
+        else if (count > 8) {
+            btnHeight = 'min-h-[4rem]';
+            textSize = 'text-2xl';
+            padding = 'px-3 py-2';
+        }
 
         this.container.innerHTML = `
             <div class="fixed top-0 left-0 right-0 h-16 z-40 px-4 flex justify-between items-center bg-gray-100/90 dark:bg-dark-bg/90 backdrop-blur-sm border-b border-white/10">
@@ -158,16 +226,12 @@ export class SentencesApp {
                 </div>
 
                 <div id="sent-slots" class="flex flex-wrap justify-center content-start gap-2 min-h-[5rem] p-4 bg-gray-100 dark:bg-dark-bg/50 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 transition-all overflow-y-auto custom-scrollbar">
-                    ${this.builtIndices.map((poolIdx, i) => `
-                        <button class="bg-pink-500 text-white rounded-lg px-3 py-2 font-bold shadow-md active:scale-95 whitespace-nowrap text-xl" data-pos="${i}">${this.wordPool[poolIdx].word}</button>
-                    `).join('')}
-                    ${this.builtIndices.length === 0 ? '<span class="text-gray-400 text-sm self-center font-medium animate-pulse w-full text-center">Tap words below</span>' : ''}
-                </div>
+                    </div>
 
                 <div class="flex-1 overflow-y-auto custom-scrollbar">
                     <div class="flex flex-wrap justify-center gap-2 pb-4">
                         ${this.wordPool.map((w, i) => `
-                            <button class="flex-grow bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 min-w-[4rem] min-h-[5rem] font-bold text-3xl text-gray-700 dark:text-white shadow-sm hover:border-pink-400 active:scale-95 transition-all whitespace-nowrap flex items-center justify-center ${w.used ? 'opacity-20 pointer-events-none' : ''}" data-index="${i}">
+                            <button class="flex-grow bg-white dark:bg-dark-card border-2 border-gray-200 dark:border-gray-700 rounded-xl ${padding} ${btnHeight} ${textSize} font-bold text-gray-700 dark:text-white shadow-sm hover:border-pink-400 active:scale-95 transition-all whitespace-nowrap flex items-center justify-center ${w.used ? 'opacity-20 pointer-events-none' : ''}" data-index="${i}">
                                 <span class="w-full text-center">${w.word}</span>
                             </button>
                         `).join('')}
@@ -198,10 +262,11 @@ export class SentencesApp {
         goBtn.addEventListener('click', () => this.gotoId(idInput.value));
         idInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') this.gotoId(idInput.value); });
 
-        this.container.querySelectorAll('[data-index]').forEach(btn => btn.addEventListener('click', (e) => this.handlePoolClick(parseInt(e.currentTarget.dataset.index))));
-        this.container.querySelectorAll('[data-pos]').forEach(btn => btn.addEventListener('click', (e) => this.handleBuiltClick(parseInt(e.currentTarget.dataset.pos))));
+        this.container.querySelectorAll('button[data-index]').forEach(btn => btn.addEventListener('click', (e) => this.handlePoolClick(parseInt(e.currentTarget.dataset.index))));
         
-        // --- THIS is the critical update: passing 'false' at the end ---
+        // Initial population of slots
+        this.updateSlots();
+        
         requestAnimationFrame(() => {
             this.container.querySelectorAll('[data-fit="true"]').forEach(el => textService.fitText(el, 14, 80, false));
         });

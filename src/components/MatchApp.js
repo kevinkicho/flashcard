@@ -21,6 +21,11 @@ export class MatchApp {
         this.startNewGame();
     }
 
+    // --- SMART FIX ---
+    refresh() {
+        this.startNewGame();
+    }
+
     updateCategories() {
         const all = vocabService.getAll();
         const cats = new Set(all.map(i => i.category || 'Uncategorized'));
@@ -44,7 +49,7 @@ export class MatchApp {
         this.matchesFound = 0;
         
         const list = this.getFilteredList();
-        if (list.length < 6) return; // Or handle error
+        if (list.length < 6) return; 
 
         const gameItems = [...list].sort(() => 0.5 - Math.random()).slice(0, 6);
         
@@ -178,6 +183,7 @@ export class MatchApp {
 
         this.container.querySelectorAll('.match-card').forEach(btn => btn.addEventListener('click', (e) => this.handleCardClick(parseInt(e.currentTarget.dataset.index), e.currentTarget)));
         
+        // --- SMART FIT TEXT ---
         requestAnimationFrame(() => {
             if(!this.container) return;
             this.container.querySelectorAll('.card-text').forEach(el => textService.fitText(el, 14, 60, false));

@@ -22,6 +22,17 @@ export class QuizApp {
         else this.render(); 
     }
 
+    // --- SMART FIX: RELOAD DATA ON SETTINGS CHANGE ---
+    refresh() {
+        if (this.currentData && this.currentData.target) {
+            // Regenerate the SAME question ID to pull the new language data
+            this.currentData = quizService.generateQuestion(this.currentData.target.id);
+            this.render();
+        } else {
+            this.random();
+        }
+    }
+
     updateCategories() {
         const all = vocabService.getAll();
         const cats = new Set(all.map(i => i.category || 'Uncategorized'));
@@ -107,8 +118,6 @@ export class QuizApp {
         if (this.isProcessing || window.wasLongPress) return;
         const settings = settingsService.get();
         const isConfirmationClick = (settings.quizDoubleClick && this.selectedAnswerId === id);
-        
-        // FIX: Removed audioService.speak call entirely for choices as they are Definitions/Origin (Request #1)
         
         if (settings.quizDoubleClick) {
             if (this.selectedAnswerId !== id) {
@@ -201,7 +210,7 @@ export class QuizApp {
                 ${pillsHtml}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
                     <div id="quiz-question-box" class="w-full h-full bg-white dark:bg-dark-card rounded-[2rem] shadow-xl border-2 border-indigo-100 dark:border-dark-border p-2 flex flex-col items-center justify-center overflow-hidden">
-                        <span class="quiz-question-text font-black text-6xl text-gray-800 dark:text-white text-center leading-tight w-full">${textService.smartWrap(target.front.main)}</span>
+                        <span class="quiz-question-text font-black text-6xl text-gray-800 dark:text-white text-center leading-tight w-full" data-fit="true">${textService.smartWrap(target.front.main)}</span>
                     </div>
                     
                     <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-3">
@@ -249,7 +258,9 @@ export class QuizApp {
             this.handleOptionClick(parseInt(e.currentTarget.dataset.id), e.currentTarget, text);
         }));
         
+        // --- SMART FIT TEXT APPLIED ---
         requestAnimationFrame(() => {
+            if(!this.container) return;
             textService.fitText(this.container.querySelector('.quiz-question-text'), 24, 90);
             this.container.querySelectorAll('.quiz-choice-text').forEach(el => {
                 textService.fitText(el, 18, 55); 

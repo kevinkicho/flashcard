@@ -41,8 +41,8 @@ class ScoreService {
         onValue(todayRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                // Sum all known game types
-                const games = ['flashcard', 'quiz', 'sentences', 'blanks', 'listening', 'match', 'memory', 'finder', 'constructor', 'writing', 'truefalse', 'reverse'];
+                // ADDED 'decoder'
+                const games = ['flashcard', 'quiz', 'sentences', 'blanks', 'listening', 'match', 'memory', 'finder', 'constructor', 'writing', 'truefalse', 'reverse', 'speech', 'decoder', 'gravity'];
                 this.todayScore = games.reduce((sum, g) => sum + (data[g] || 0), 0);
             } else {
                 this.todayScore = 0;
@@ -51,7 +51,6 @@ class ScoreService {
         });
     }
 
-    // --- MIGRATION LOGIC ---
     async getSnapshot() {
         if (!this.userId) return null;
         try {
@@ -65,10 +64,7 @@ class ScoreService {
 
     async migrateStats(oldData) {
         if (!this.userId || !oldData) return;
-        
         const updates = {};
-        // Deep merge oldData into new user path
-        // We iterate through dates and totals in the old data
         Object.keys(oldData).forEach(dateKey => {
             const dateObj = oldData[dateKey];
             if (typeof dateObj === 'object') {
@@ -80,17 +76,12 @@ class ScoreService {
                 });
             }
         });
-
         if (Object.keys(updates).length > 0) {
             try {
                 await update(ref(db), updates);
-                console.log("Migration successful");
-            } catch (e) {
-                console.error("Migration failed", e);
-            }
+            } catch (e) { console.error("Migration failed", e); }
         }
     }
-    // -----------------------
 
     addScore(gameType, points) {
         if (!this.userId) return;

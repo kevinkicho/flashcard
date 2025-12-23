@@ -11,7 +11,11 @@ const GAMES = [
     { id: 'co', type: 'constructor', name: 'Constructor', verb: 'Assemble', title: 'Engineer' },
     { id: 'wr', type: 'writing', name: 'Writing', verb: 'Type', title: 'Scribe' },
     { id: 'tf', type: 'truefalse', name: 'Review', verb: 'Verify', title: 'Judge' },
-    { id: 'rv', type: 'reverse', name: 'Reverse', verb: 'Identify', title: 'Analyst' }
+    { id: 'rv', type: 'reverse', name: 'Reverse', verb: 'Identify', title: 'Analyst' },
+// ... in GAMES array ...
+    { id: 'sp', type: 'speech', name: 'Speech', verb: 'Speak', title: 'Orator' },
+    { id: 'dc', type: 'decoder', name: 'Decoder', verb: 'Decode', title: 'Cryptographer' },
+    { id: 'gr', type: 'gravity', name: 'Gravity', verb: 'Defend', title: 'Guardian' }
 ];
 
 // Progression Tiers

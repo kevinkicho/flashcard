@@ -10,6 +10,9 @@ import { constructorApp } from '../components/ConstructorApp';
 import { writingApp } from '../components/WritingApp';
 import { trueFalseApp } from '../components/TrueFalseApp';
 import { reverseApp } from '../components/ReverseApp';
+import { speechApp } from '../components/SpeechApp';
+import { decoderApp } from '../components/DecoderApp';
+import { gravityApp } from '../components/GravityApp'; // 1. IMPORT
 import { audioService } from '../services/audioService';
 import { textService } from '../services/textService';
 import { vocabService } from '../services/vocabService';
@@ -21,7 +24,6 @@ class ViewManager {
         this.savedHistory = {};
         try { this.savedHistory = JSON.parse(localStorage.getItem('polyglot_history') || '{}'); } catch (e) {}
         
-        // Expose global for legacy calls (if any)
         window.saveGameHistory = (game, id) => { 
             if (id) { 
                 this.savedHistory[game] = id; 
@@ -44,7 +46,10 @@ class ViewManager {
             constructor: document.getElementById('constructor-view'),
             writing: document.getElementById('writing-view'),
             truefalse: document.getElementById('truefalse-view'),
-            reverse: document.getElementById('reverse-view')
+            reverse: document.getElementById('reverse-view'),
+            speech: document.getElementById('speech-view'),
+            decoder: document.getElementById('decoder-view'),
+            gravity: document.getElementById('gravity-view') // 2. MAP
         };
 
         this.bindNavigation();
@@ -52,7 +57,6 @@ class ViewManager {
         window.addEventListener('popstate', (e) => this.render(e.state ? e.state.view : 'home'));
         window.addEventListener('router:home', () => history.back());
         
-        // Global Resize Handler for Text Fitting
         let resizeTimer;
         window.addEventListener('resize', () => {
             if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
@@ -63,7 +67,6 @@ class ViewManager {
             }, 100);
         });
 
-        // Refresh active app when vocab changes (e.g. language switch)
         vocabService.subscribe(() => { 
             if (this.currentActiveApp && this.currentActiveApp.refresh) {
                 this.currentActiveApp.refresh();
@@ -79,7 +82,8 @@ class ViewManager {
                 this.render(view); 
             }); 
         };
-        ['flashcard','quiz','sentences','blanks','listening','match','memory','finder','constructor','writing','truefalse','reverse'].forEach(v => bind(`menu-${v}-btn`, v));
+        // 3. LIST UPDATE
+        ['flashcard','quiz','sentences','blanks','listening','match','memory','finder','constructor','writing','truefalse','reverse','speech','decoder','gravity'].forEach(v => bind(`menu-${v}-btn`, v));
     }
 
     render(viewName) {
@@ -96,7 +100,6 @@ class ViewManager {
             target.classList.remove('hidden'); 
             const lastId = this.savedHistory[viewName]; 
             
-            // Mounting Logic
             if (viewName === 'flashcard') { flashcardApp.mount('flashcard-view'); this.currentActiveApp = flashcardApp; if(lastId) flashcardApp.goto(lastId); } 
             else if (viewName === 'quiz') { quizApp.mount('quiz-view'); this.currentActiveApp = quizApp; if(lastId) quizApp.next(lastId); } 
             else if (viewName === 'sentences') { sentencesApp.mount('sentences-view'); this.currentActiveApp = sentencesApp; if(lastId) sentencesApp.next(lastId); } 
@@ -109,6 +112,9 @@ class ViewManager {
             else if (viewName === 'writing') { writingApp.mount('writing-view'); this.currentActiveApp = writingApp; }
             else if (viewName === 'truefalse') { trueFalseApp.mount('truefalse-view'); this.currentActiveApp = trueFalseApp; }
             else if (viewName === 'reverse') { reverseApp.mount('reverse-view'); this.currentActiveApp = reverseApp; }
+            else if (viewName === 'speech') { speechApp.mount('speech-view'); this.currentActiveApp = speechApp; if(lastId) speechApp.next(lastId); }
+            else if (viewName === 'decoder') { decoderApp.mount('decoder-view'); this.currentActiveApp = decoderApp; if(lastId) decoderApp.next(lastId); }
+            else if (viewName === 'gravity') { gravityApp.mount('gravity-view'); this.currentActiveApp = gravityApp; } // 4. MOUNT
         }
     }
 
